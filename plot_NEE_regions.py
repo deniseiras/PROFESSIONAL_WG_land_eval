@@ -354,7 +354,7 @@ if PLOT_MODE == "all":
         ax.set_title(name)
         ax.set_xlabel("Year")
         ax.set_ylabel("NEE (gC/m²/day)")
-        ax.set_ylim(-2, 2)
+        # ax.set_ylim(-2, 2)
         ax.xaxis.set_major_locator(YearLocator(base=5))
         ax.xaxis.set_major_formatter(DateFormatter("%Y"))
         # Minor ticks: every year

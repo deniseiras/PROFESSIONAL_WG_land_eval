@@ -16,8 +16,8 @@ IN_DIR = "./data/out"
 OUT_DIR = "./data/figures_out"
 START_YEAR = 2002
 END_YEAR = 2022
-# PLOT_MODE = "all"
-PLOT_MODE = "single"
+PLOT_MODE = "all"
+# PLOT_MODE = "single"
 SELECTED_REGION = "Global"
 # SELECTED_REGION = "South American Tropical"
 
@@ -336,6 +336,20 @@ if PLOT_MODE == "all":
 
         # Plot MEAN line (main)
         ax.plot(x_time_plot, mean_series, color="tab:blue", linewidth=1.8, label="MEAN")
+
+        # Optional overlay: CSV time series for this region (from REGIONS dict)
+        auto_csv = REGIONS[name].get("csv_file")
+        if auto_csv is not None and os.path.exists(auto_csv):
+            try:
+                df_csv = pd.read_csv(auto_csv)
+                ts_vals = pd.to_datetime(df_csv[CSV_T_COL].astype(str), format=CSV_T_FMT, errors="coerce")
+                y_vals = pd.to_numeric(df_csv[CSV_V_COL], errors="coerce")
+                mask = ts_vals.notna() & y_vals.notna()
+                ts_vals = ts_vals[mask]
+                y_vals = y_vals[mask]
+                ax.plot(ts_vals, y_vals, color="tab:red", linewidth=1.6, label="Reference CSV")
+            except Exception as e:
+                print(f"Warning: failed to overlay CSV '{auto_csv}' for region '{name}': {e}")
 
         ax.set_title(name)
         ax.set_xlabel("Year")

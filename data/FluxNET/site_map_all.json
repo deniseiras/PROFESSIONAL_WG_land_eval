@@ -1,0 +1,78 @@
+{
+  "region_to_site": {
+    "Global": {
+      "SITE_ID": "GH-Ank",
+      "LOCATION_LAT": 5.2685,
+      "LOCATION_LONG": -2.6942
+    },
+    "North American Boreal": {
+      "SITE_ID": "CA-SCB",
+      "LOCATION_LAT": 61.3089,
+      "LOCATION_LONG": -121.2984
+    },
+    "North American Temperate": {
+      "SITE_ID": "US-Ne3",
+      "LOCATION_LAT": 41.1797,
+      "LOCATION_LONG": -96.4397
+    },
+    "South American Tropical": {
+      "SITE_ID": "BR-Sa3",
+      "LOCATION_LAT": -3.018,
+      "LOCATION_LONG": -54.9714
+    },
+    "South American Temperate": {
+      "SITE_ID": "AR-Vir",
+      "LOCATION_LAT": -28.2395,
+      "LOCATION_LONG": -56.1886
+    },
+    "Northern Africa": {
+      "SITE_ID": "SN-Dhr",
+      "LOCATION_LAT": 15.4028,
+      "LOCATION_LONG": -15.4322
+    },
+    "Southern Africa": {
+      "SITE_ID": "BW-Nxr",
+      "LOCATION_LAT": -19.5481,
+      "LOCATION_LONG": 23.1792
+    },
+    "Eurasian Boreal": {
+      "SITE_ID": "RU-Ha1",
+      "LOCATION_LAT": 54.7252,
+      "LOCATION_LONG": 90.0022
+    },
+    "Eurasian Temperate": {
+      "SITE_ID": "CN-Dan",
+      "LOCATION_LAT": 30.4978,
+      "LOCATION_LONG": 91.0664
+    },
+    "Tropical Asia": {
+      "SITE_ID": "MY-PSO",
+      "LOCATION_LAT": 2.973,
+      "LOCATION_LONG": 102.3062
+    },
+    "Australia": {
+      "SITE_ID": "AU-ASM",
+      "LOCATION_LAT": -22.283,
+      "LOCATION_LONG": 133.249
+    },
+    "Europe": {
+      "SITE_ID": "DE-Spw",
+      "LOCATION_LAT": 51.8922,
+      "LOCATION_LONG": 14.0337
+    }
+  },
+  "site_id_to_file": {
+    "GH-Ank": "./data/FluxNET/FLX_GH-Ank_FLUXNET2015_SUBSET_MM_YYYY_ini-YYYY_end_M-N.csv",
+    "CA-SCB": "./data/FluxNET/FLX_CA-SCB_FLUXNET2015_SUBSET_MM_YYYY_ini-YYYY_end_M-N.csv",
+    "US-Ne3": "./data/FluxNET/FLX_US-Ne3_FLUXNET2015_SUBSET_MM_YYYY_ini-YYYY_end_M-N.csv",
+    "BR-Sa3": "./data/FluxNET/FLX_BR-Sa3_FLUXNET2015_SUBSET_MM_YYYY_ini-YYYY_end_M-N.csv",
+    "AR-Vir": "./data/FluxNET/FLX_AR-Vir_FLUXNET2015_SUBSET_MM_YYYY_ini-YYYY_end_M-N.csv",
+    "SN-Dhr": "./data/FluxNET/FLX_SN-Dhr_FLUXNET2015_SUBSET_MM_YYYY_ini-YYYY_end_M-N.csv",
+    "BW-Nxr": "./data/FluxNET/FLX_BW-Nxr_FLUXNET2015_SUBSET_MM_YYYY_ini-YYYY_end_M-N.csv",
+    "RU-Ha1": "./data/FluxNET/FLX_RU-Ha1_FLUXNET2015_SUBSET_MM_YYYY_ini-YYYY_end_M-N.csv",
+    "CN-Dan": "./data/FluxNET/FLX_CN-Dan_FLUXNET2015_SUBSET_MM_YYYY_ini-YYYY_end_M-N.csv",
+    "MY-PSO": "./data/FluxNET/FLX_MY-PSO_FLUXNET2015_SUBSET_MM_YYYY_ini-YYYY_end_M-N.csv",
+    "AU-ASM": "./data/FluxNET/FLX_AU-ASM_FLUXNET2015_SUBSET_MM_YYYY_ini-YYYY_end_M-N.csv",
+    "DE-Spw": "./data/FluxNET/FLX_DE-Spw_FLUXNET2015_SUBSET_MM_YYYY_ini-YYYY_end_M-N.csv"
+  }
+}

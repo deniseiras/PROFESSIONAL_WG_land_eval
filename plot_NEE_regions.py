@@ -1,11 +1,30 @@
 #!/juno/opt/anaconda/3-2022.10/bin/python
 import os
 import glob
+import argparse
 import xarray as xr
 import matplotlib.pyplot as plt
 from matplotlib.dates import YearLocator, DateFormatter
 import numpy as np
 import pandas as pd
+
+
+# ----------------------------
+# Configuration (defaults; can be overridden by CLI)
+# ----------------------------
+IN_DIR = "./data/out"
+OUT_DIR = "./data/figures_out"
+START_YEAR = 2002
+END_YEAR = 2022
+PLOT_MODE = "all"
+# PLOT_MODE = "single"
+# SELECTED_REGION = "Global"
+SELECTED_REGION = "South American Tropical"
+
+
+CSV_V_COL = "NEE_VUT_REF"
+CSV_PATH = "./data/FluxNET/FLX_BR-Sa3_FLUXNET2015_SUBSET_MM_2000-2004_1-4.csv"
+
 
 # ----------------------------
 # Helpers
@@ -81,15 +100,9 @@ def get_fill_value(da):
         return attrs["missing_value"]
     return 1e36
 
-# ----------------------------
-# Configuration
-# ----------------------------
-IN_DIR = "./data/out"
-OUT_DIR = "./data/figures_out"
-START_YEAR = 2002
-END_YEAR = 2022
-member_ids = [f"{i:04d}" for i in range(1, 31)]  # 0001..0030
 
+
+member_ids = [f"{i:04d}" for i in range(1, 31)]  # 0001..0030
 # Define regions: (lat_min, lat_max, lon_min, lon_max)
 regions = {
     "Global": (-90, 90, -180, 180),
@@ -105,6 +118,44 @@ regions = {
     "Australia": (-45, -10, 110, 155),
     "Europe": (35, 70, -10, 40),
 }
+
+# ----------------------------
+# CLI arguments
+# ----------------------------
+parser = argparse.ArgumentParser(
+    description=(
+        "Plot monthly NEE regional time series: either all 12 regions (subplots) "
+        "or a single region occupying the full figure, with optional CSV overlay."
+    )
+)
+parser.add_argument("--in-dir", default=IN_DIR, help="Input directory for NEE_monthmean_*.nc files")
+parser.add_argument("--out-dir", default=OUT_DIR, help="Output directory for figures")
+parser.add_argument("--start-year", type=int, default=START_YEAR, help="Start year (inclusive)")
+parser.add_argument("--end-year", type=int, default=END_YEAR, help="End year (inclusive)")
+parser.add_argument(
+    "--mode", choices=["all", "single"], default=PLOT_MODE,
+    help="Plot mode: 'all' = 12 subplots, 'single' = one region full-figure"
+)
+parser.add_argument("--region", default=SELECTED_REGION, help="Region name to plot in single mode")
+parser.add_argument("--fluxnet-csv", default=CSV_PATH, help="Optional CSV file to overlay in single mode")
+parser.add_argument("--fluxnet-timestamp-col", default="TIMESTAMP", help="CSV column with YYYYMM timestamps")
+parser.add_argument("--fluxnet-value-col", default=CSV_V_COL, help="CSV column with NEE values")
+parser.add_argument("--fluxnet-timestamp-fmt", default="%Y%m", help="Timestamp format for CSV (default %%Y%%m)")
+args = parser.parse_args()
+
+IN_DIR = args.in_dir
+OUT_DIR = args.out_dir
+START_YEAR = args.start_year
+END_YEAR = args.end_year
+PLOT_MODE = args.mode
+SELECTED_REGION = args.region
+CSV_PATH = args.fluxnet_csv
+CSV_V_COL = args.fluxnet_value_col
+
+CSV_T_COL = args.fluxnet_timestamp_col
+CSV_T_FMT = args.fluxnet_timestamp_fmt
+
+os.makedirs(OUT_DIR, exist_ok=True)
 
 # ----------------------------
 # Read MEAN and ensemble MEMBER files per month and compute regional means
@@ -157,17 +208,7 @@ for year in range(START_YEAR, END_YEAR + 1):
             area2d = compute_cell_areas_km2(lat, lon)
             area = xr.DataArray(area2d, coords={"lat": ds_ref["lat"], "lon": ds_ref["lon"]}, dims=("lat", "lon"))
 
-        # # Time for this month
-        # if ds_mean is not None and "time" in ds_mean.coords:
-        #     try:
-        #         # Ensure scalar pandas Timestamp
-        #         tval = pd.to_datetime(ds_mean["time"].values[0])
-        #     except Exception:
-        #         print(f"Error occurred while parsing time for {mean_path}")
-        #         tval = pd.to_datetime(f"{year}-{month:02d}-01")
-        # else:
-        #     tval = pd.to_datetime(f"{year}-{month:02d}-01")
-            
+        # Use calendar month as time index
         tval = pd.to_datetime(f"{year}-{month:02d}-01")
         time_list.append(tval)
 
@@ -220,19 +261,72 @@ for year in range(START_YEAR, END_YEAR + 1):
             ds_mean.close()
 
 # ----------------------------
-# Plot a single figure spanning START_YEAR..END_YEAR
+# Plot
 # ----------------------------
-fig, axes = plt.subplots(3, 4, figsize=(20, 12), constrained_layout=True)
-axes = axes.flatten()
-
 x_time_plot = pd.to_datetime(time_list)
 
-for i, name in enumerate(regions.keys()):
-    ax = axes[i]
+if PLOT_MODE == "all":
+    fig, axes = plt.subplots(3, 4, figsize=(20, 12), constrained_layout=True)
+    axes = axes.flatten()
 
-    # Prepare data arrays
-    mean_series = np.array(region_mean_series[name], dtype=float)
-    members_arr = np.stack([region_member_series[name][mid] for mid in member_ids], axis=1)  # [ntime, nmembers]
+    for i, name in enumerate(regions.keys()):
+        ax = axes[i]
+
+        # Prepare data arrays
+        mean_series = np.array(region_mean_series[name], dtype=float)
+        members_arr = np.stack([region_member_series[name][mid] for mid in member_ids], axis=1)  # [ntime, nmembers]
+
+        # Uncertainty shading: min..max across members
+        low = np.nanmin(members_arr, axis=1)
+        high = np.nanmax(members_arr, axis=1)
+        ax.fill_between(x_time_plot, low, high, color="tab:blue", alpha=0.15, label="Member range")
+
+        # Plot member lines (light, transparent)
+        for j in range(members_arr.shape[1]):
+            ax.plot(x_time_plot, members_arr[:, j], color="gray", alpha=0.15, linewidth=0.7)
+
+        # Plot MEAN line (main)
+        ax.plot(x_time_plot, mean_series, color="tab:blue", linewidth=1.8, label="MEAN")
+
+        ax.set_title(name)
+        ax.set_xlabel("Year")
+        ax.set_ylabel("NEE (gC/m²/day)")
+        ax.set_ylim(-2, 2)
+        ax.xaxis.set_major_locator(YearLocator(base=5))
+        ax.xaxis.set_major_formatter(DateFormatter("%Y"))
+        # Minor ticks: every year
+        ax.xaxis.set_minor_locator(YearLocator(1))
+
+        # Grid
+        ax.grid(True, which="major", axis="both")
+        ax.grid(True, which="minor", axis="x", linestyle=":", alpha=0.6)
+
+    # Hide any empty subplot if regions < 12
+    for j in range(len(regions), len(axes)):
+        axes[j].axis("off")
+
+    # Put a single legend in the first axis to avoid clutter
+    handles, labels = axes[0].get_legend_handles_labels()
+    if handles:
+        axes[0].legend(loc="upper right", frameon=False)
+
+    fig.suptitle(f"Monthly NEE (MEAN and Ensemble Uncertainty) {START_YEAR}-{END_YEAR}", fontsize=16)
+    out_png = os.path.join(OUT_DIR, f"NEE_monthly_means_{START_YEAR}_{END_YEAR}.png")
+    plt.savefig(out_png, dpi=300)
+    plt.close(fig)
+    print(f"Saved {out_png}")
+
+elif PLOT_MODE == "single":
+    region_name = SELECTED_REGION
+    if region_name not in regions:
+        valid = ", ".join(regions.keys())
+        raise SystemExit(f"Region '{region_name}' not found. Valid options: {valid}")
+
+    fig, ax = plt.subplots(figsize=(12, 6), constrained_layout=True)
+
+    # Prepare data arrays for selected region
+    mean_series = np.array(region_mean_series[region_name], dtype=float)
+    members_arr = np.stack([region_member_series[region_name][mid] for mid in member_ids], axis=1)  # [ntime, nmembers]
 
     # Uncertainty shading: min..max across members
     low = np.nanmin(members_arr, axis=1)
@@ -246,34 +340,36 @@ for i, name in enumerate(regions.keys()):
     # Plot MEAN line (main)
     ax.plot(x_time_plot, mean_series, color="tab:blue", linewidth=1.8, label="MEAN")
 
-    ax.set_title(name)
-    ax.set_xlabel("Year")
-    ax.plot(x_time_plot, members_arr[:, j], color="gray", alpha=0.15, linewidth=0.7)
+    # Optional overlay: CSV time series
+    if CSV_PATH is not None and os.path.exists(CSV_PATH):
+        try:
+            df_csv = pd.read_csv(CSV_PATH)
+            ts_vals = pd.to_datetime(df_csv[CSV_T_COL].astype(str), format=CSV_T_FMT, errors="coerce")
+            y_vals = pd.to_numeric(df_csv[CSV_V_COL], errors="coerce")
+            mask = ts_vals.notna() & y_vals.notna()
+            ts_vals = ts_vals[mask]
+            y_vals = y_vals[mask]
+            ax.plot(ts_vals, y_vals, color="tab:red", linewidth=1.6, label="Reference CSV")
+        except Exception as e:
+            print(f"Warning: failed to overlay CSV '{CSV_PATH}': {e}")
 
-    
+    ax.set_title(f"{region_name}")
+    ax.set_xlabel("Year")
     ax.set_ylabel("NEE (gC/m²/day)")
-    ax.set_ylim(-2, 2)
-    ax.grid(True)
+    # ax.set_ylim(-2, 2)
     ax.xaxis.set_major_locator(YearLocator(base=5))
     ax.xaxis.set_major_formatter(DateFormatter("%Y"))
-    # Minor ticks: every year
     ax.xaxis.set_minor_locator(YearLocator(1))
-
-    # Grid
     ax.grid(True, which="major", axis="both")
     ax.grid(True, which="minor", axis="x", linestyle=":", alpha=0.6)
 
-# Hide any empty subplot if regions < 12
-for j in range(len(regions), len(axes)):
-    axes[j].axis("off")
+    ax.legend(loc="upper right", frameon=False)
 
-# Put a single legend in the first axis to avoid clutter
-handles, labels = axes[0].get_legend_handles_labels()
-if handles:
-    axes[0].legend(loc="upper right", frameon=False)
+    safe_region = region_name.replace(" ", "_").replace("/", "-")
+    out_png = os.path.join(OUT_DIR, f"NEE_monthly_{CSV_V_COL}_{safe_region}_{START_YEAR}_{END_YEAR}.png")
+    plt.savefig(out_png, dpi=300)
+    plt.close(fig)
+    print(f"Saved {out_png}")
 
-fig.suptitle(f"Monthly NEE (MEAN and Ensemble Uncertainty) {START_YEAR}-{END_YEAR}", fontsize=16)
-out_png = os.path.join(OUT_DIR, f"NEE_monthly_means_{START_YEAR}_{END_YEAR}.png")
-plt.savefig(out_png, dpi=300)
-plt.close(fig)
-print(f"Saved {out_png}")
+else:
+    raise SystemExit(f"Unknown mode: {PLOT_MODE}")

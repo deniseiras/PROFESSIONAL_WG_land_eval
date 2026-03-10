@@ -15,7 +15,7 @@ import pandas as pd
 IN_DIR = "./data/out"
 OUT_DIR = "./data/figures_out"
 START_YEAR = 2002
-END_YEAR = 2003
+END_YEAR = 2022
 # PLOT_MODE = "all"
 PLOT_MODE = "single"
 SELECTED_REGION = "Global"
@@ -101,7 +101,7 @@ def get_fill_value(da):
 
 
 
-member_ids = [f"{i:04d}" for i in range(1, 3)]  # 0001..0030
+member_ids = [f"{i:04d}" for i in range(1, 31)]  # 0001..0030
 # Merged region metadata: bounds, representative site, and default FluxNET CSV
 REGIONS = {
     "Global": {

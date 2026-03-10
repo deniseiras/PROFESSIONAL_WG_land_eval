@@ -15,15 +15,14 @@ import pandas as pd
 IN_DIR = "./data/out"
 OUT_DIR = "./data/figures_out"
 START_YEAR = 2002
-END_YEAR = 2022
-PLOT_MODE = "all"
-# PLOT_MODE = "single"
-# SELECTED_REGION = "Global"
-SELECTED_REGION = "South American Tropical"
+END_YEAR = 2003
+# PLOT_MODE = "all"
+PLOT_MODE = "single"
+SELECTED_REGION = "Global"
+# SELECTED_REGION = "South American Tropical"
 
 
 CSV_V_COL = "NEE_VUT_REF"
-CSV_PATH = "./data/FluxNET/FLX_BR-Sa3_FLUXNET2015_SUBSET_MM_2000-2004_1-4.csv"
 
 
 # ----------------------------
@@ -102,22 +101,71 @@ def get_fill_value(da):
 
 
 
-member_ids = [f"{i:04d}" for i in range(1, 31)]  # 0001..0030
-# Define regions: (lat_min, lat_max, lon_min, lon_max)
-regions = {
-    "Global": (-90, 90, -180, 180),
-    "North American Boreal": (50, 70, -170, -50),
-    "North American Temperate": (30, 50, -130, -60),
-    "South American Tropical": (-20, 10, -80, -35),
-    "South American Temperate": (-40, -20, -70, -50),
-    "Northern Africa": (10, 30, -20, 30),
-    "Southern Africa": (-35, -15, 10, 40),
-    "Eurasian Boreal": (50, 70, 10, 180),
-    "Eurasian Temperate": (30, 50, -10, 180),
-    "Tropical Asia": (-10, 20, 60, 120),
-    "Australia": (-45, -10, 110, 155),
-    "Europe": (35, 70, -10, 40),
+member_ids = [f"{i:04d}" for i in range(1, 3)]  # 0001..0030
+# Merged region metadata: bounds, representative site, and default FluxNET CSV
+REGIONS = {
+    "Global": {
+        "bounds": (-90, 90, -180, 180),
+        "site": {"SITE_ID": "GH-Ank", "LOCATION_LAT": 5.2685, "LOCATION_LONG": -2.6942},
+        "csv_file": "./data/FluxNET/FLX_GH-Ank_FLUXNET2015_SUBSET_MM_2011-2014_1-4.csv",
+    },
+    "North American Boreal": {
+        "bounds": (50, 70, -170, -50),
+        "site": {"SITE_ID": "CA-SF1", "LOCATION_LAT": 54.485, "LOCATION_LONG": -105.8176},
+        "csv_file": "./data/FluxNET/FLX_CA-SF1_FLUXNET2015_SUBSET_MM_2003-2006_1-4.csv",
+    },
+    "North American Temperate": {
+        "bounds": (30, 50, -130, -60),
+        "site": {"SITE_ID": "US-Ne3", "LOCATION_LAT": 41.1797, "LOCATION_LONG": -96.4397},
+        "csv_file": "./data/FluxNET/FLX_US-Ne3_FLUXNET2015_SUBSET_MM_2001-2013_1-4.csv",
+    },
+    "South American Tropical": {
+        "bounds": (-20, 10, -80, -35),
+        "site": {"SITE_ID": "BR-Sa3", "LOCATION_LAT": -3.018, "LOCATION_LONG": -54.9714},
+        "csv_file": "./data/FluxNET/FLX_BR-Sa3_FLUXNET2015_SUBSET_MM_2000-2004_1-4.csv",
+    },
+    "South American Temperate": {
+        "bounds": (-40, -20, -70, -50),
+        "site": {"SITE_ID": "AR-Vir", "LOCATION_LAT": -28.2395, "LOCATION_LONG": -56.1886},
+        "csv_file": "./data/FluxNET/FLX_AR-Vir_FLUXNET2015_SUBSET_MM_2009-2012_1-4.csv",
+    },
+    "Northern Africa": {
+        "bounds": (10, 30, -20, 30),
+        "site": {"SITE_ID": "SN-Dhr", "LOCATION_LAT": 15.4028, "LOCATION_LONG": -15.4322},
+        "csv_file": "./data/FluxNET/FLX_SN-Dhr_FLUXNET2015_SUBSET_MM_2010-2013_1-4.csv",
+    },
+    "Southern Africa": {
+        "bounds": (-35, -15, 10, 40),
+        "site": {"SITE_ID": "ZM-Mon", "LOCATION_LAT": -15.4391, "LOCATION_LONG": 23.2525},
+        "csv_file": "./data/FluxNET/FLX_ZM-Mon_FLUXNET2015_SUBSET_MM_2000-2009_2-4.csv",
+    },
+    "Eurasian Boreal": {
+        "bounds": (50, 70, 10, 180),
+        "site": {"SITE_ID": "RU-Ha1", "LOCATION_LAT": 54.7252, "LOCATION_LONG": 90.0022},
+        "csv_file": "./data/FluxNET/FLX_RU-Ha1_FLUXNET2015_SUBSET_MM_2002-2004_1-4.csv",
+    },
+    "Eurasian Temperate": {
+        "bounds": (30, 50, -10, 180),
+        "site": {"SITE_ID": "CN-Dan", "LOCATION_LAT": 30.4978, "LOCATION_LONG": 91.0664},
+        "csv_file": "./data/FluxNET/FLX_CN-Dan_FLUXNET2015_SUBSET_MM_2004-2005_1-4.csv",
+    },
+    "Tropical Asia": {
+        "bounds": (-10, 20, 60, 120),
+        "site": {"SITE_ID": "MY-PSO", "LOCATION_LAT": 2.973, "LOCATION_LONG": 102.3062},
+        "csv_file": "./data/FluxNET/FLX_MY-PSO_FLUXNET2015_SUBSET_MM_2003-2009_1-4.csv",
+    },
+    "Australia": {
+        "bounds": (-45, -10, 110, 155),
+        "site": {"SITE_ID": "AU-ASM", "LOCATION_LAT": -22.283, "LOCATION_LONG": 133.249},
+        "csv_file": "./data/FluxNET/FLX_AU-ASM_FLUXNET2015_SUBSET_MM_2010-2014_2-4.csv",
+    },
+    "Europe": {
+        "bounds": (35, 70, -10, 40),
+        "site": {"SITE_ID": "DE-Spw", "LOCATION_LAT": 51.8922, "LOCATION_LONG": 14.0337},
+        "csv_file": "./data/FluxNET/FLX_DE-Spw_FLUXNET2015_SUBSET_MM_2010-2014_1-4.csv",
+    },
 }
+
 
 # ----------------------------
 # CLI arguments
@@ -137,7 +185,7 @@ parser.add_argument(
     help="Plot mode: 'all' = 12 subplots, 'single' = one region full-figure"
 )
 parser.add_argument("--region", default=SELECTED_REGION, help="Region name to plot in single mode")
-parser.add_argument("--fluxnet-csv", default=CSV_PATH, help="Optional CSV file to overlay in single mode")
+parser.add_argument("--fluxnet-csv", default=None, help="Optional CSV file to overlay in single mode; if not provided, uses the region's default FluxNET CSV")
 parser.add_argument("--fluxnet-timestamp-col", default="TIMESTAMP", help="CSV column with YYYYMM timestamps")
 parser.add_argument("--fluxnet-value-col", default=CSV_V_COL, help="CSV column with NEE values")
 parser.add_argument("--fluxnet-timestamp-fmt", default="%Y%m", help="Timestamp format for CSV (default %%Y%%m)")
@@ -149,7 +197,6 @@ START_YEAR = args.start_year
 END_YEAR = args.end_year
 PLOT_MODE = args.mode
 SELECTED_REGION = args.region
-CSV_PATH = args.fluxnet_csv
 CSV_V_COL = args.fluxnet_value_col
 
 CSV_T_COL = args.fluxnet_timestamp_col
@@ -163,8 +210,8 @@ os.makedirs(OUT_DIR, exist_ok=True)
 
 # Storage
 time_list = []
-region_mean_series = {name: [] for name in regions}
-region_member_series = {name: {mid: [] for mid in member_ids} for name in regions}
+region_mean_series = {name: [] for name in REGIONS}
+region_member_series = {name: {mid: [] for mid in member_ids} for name in REGIONS}
 
 area = None  # area weights (km^2)
 
@@ -216,7 +263,8 @@ for year in range(START_YEAR, END_YEAR + 1):
         if ds_mean is not None:
             var_mean = ds_mean["NEE"]
             fv_mean = get_fill_value(var_mean)
-            for name, (lat_min, lat_max, lon_min, lon_max) in regions.items():
+            for name, info in REGIONS.items():
+                lat_min, lat_max, lon_min, lon_max = info["bounds"]
                 subset = safe_sel_box(var_mean, lat_min, lat_max, lon_min, lon_max)
                 area_subset = safe_sel_box(area, lat_min, lat_max, lon_min, lon_max)
                 subset_masked = subset.where(subset != fv_mean)
@@ -225,7 +273,7 @@ for year in range(START_YEAR, END_YEAR + 1):
                 den = weights.sum(dim=("lat", "lon"))
                 region_mean_series[name].append((num / den).item())
         else:
-            for name in regions:
+            for name in REGIONS:
                 region_mean_series[name].append(np.nan)
 
         # Compute region means for each MEMBER (append NaN if missing)
@@ -237,7 +285,8 @@ for year in range(START_YEAR, END_YEAR + 1):
                 ds_m = normalize_longitudes(ds_m, lon_name="lon")
                 var_m = ds_m["NEE"]
                 fv_m = get_fill_value(var_m)
-                for name, (lat_min, lat_max, lon_min, lon_max) in regions.items():
+                for name, info in REGIONS.items():
+                    lat_min, lat_max, lon_min, lon_max = info["bounds"]
                     subset = safe_sel_box(var_m, lat_min, lat_max, lon_min, lon_max)
                     area_subset = safe_sel_box(area, lat_min, lat_max, lon_min, lon_max)
                     subset_masked = subset.where(subset != fv_m)
@@ -247,12 +296,12 @@ for year in range(START_YEAR, END_YEAR + 1):
                     region_member_series[name][mid].append((num / den).item())
                 ds_m.close()
             else:
-                for name in regions:
+                for name in REGIONS:
                     region_member_series[name][mid].append(np.nan)
 
         # If MEAN missing, backfill with mean across available members for this month
         if ds_mean is None:
-            for name in regions:
+            for name in REGIONS:
                 vals = np.array([region_member_series[name][mid][-1] for mid in member_ids], dtype=float)
                 mean_val = np.nanmean(vals) if np.isfinite(vals).any() else np.nan
                 region_mean_series[name][-1] = mean_val
@@ -269,7 +318,7 @@ if PLOT_MODE == "all":
     fig, axes = plt.subplots(3, 4, figsize=(20, 12), constrained_layout=True)
     axes = axes.flatten()
 
-    for i, name in enumerate(regions.keys()):
+    for i, name in enumerate(REGIONS.keys()):
         ax = axes[i]
 
         # Prepare data arrays
@@ -302,7 +351,7 @@ if PLOT_MODE == "all":
         ax.grid(True, which="minor", axis="x", linestyle=":", alpha=0.6)
 
     # Hide any empty subplot if regions < 12
-    for j in range(len(regions), len(axes)):
+    for j in range(len(REGIONS), len(axes)):
         axes[j].axis("off")
 
     # Put a single legend in the first axis to avoid clutter
@@ -318,8 +367,8 @@ if PLOT_MODE == "all":
 
 elif PLOT_MODE == "single":
     region_name = SELECTED_REGION
-    if region_name not in regions:
-        valid = ", ".join(regions.keys())
+    if region_name not in REGIONS:
+        valid = ", ".join(REGIONS.keys())
         raise SystemExit(f"Region '{region_name}' not found. Valid options: {valid}")
 
     fig, ax = plt.subplots(figsize=(12, 6), constrained_layout=True)
@@ -340,10 +389,12 @@ elif PLOT_MODE == "single":
     # Plot MEAN line (main)
     ax.plot(x_time_plot, mean_series, color="tab:blue", linewidth=1.8, label="MEAN")
 
-    # Optional overlay: CSV time series
-    if CSV_PATH is not None and os.path.exists(CSV_PATH):
+    # Optional overlay: CSV time series (auto-select by region unless overridden)
+    auto_csv = REGIONS[region_name].get("csv_file")
+    csv_to_use = args.fluxnet_csv if args.fluxnet_csv else auto_csv
+    if csv_to_use is not None and os.path.exists(csv_to_use):
         try:
-            df_csv = pd.read_csv(CSV_PATH)
+            df_csv = pd.read_csv(csv_to_use)
             ts_vals = pd.to_datetime(df_csv[CSV_T_COL].astype(str), format=CSV_T_FMT, errors="coerce")
             y_vals = pd.to_numeric(df_csv[CSV_V_COL], errors="coerce")
             mask = ts_vals.notna() & y_vals.notna()
@@ -351,7 +402,7 @@ elif PLOT_MODE == "single":
             y_vals = y_vals[mask]
             ax.plot(ts_vals, y_vals, color="tab:red", linewidth=1.6, label="Reference CSV")
         except Exception as e:
-            print(f"Warning: failed to overlay CSV '{CSV_PATH}': {e}")
+            print(f"Warning: failed to overlay CSV '{csv_to_use}': {e}")
 
     ax.set_title(f"{region_name}")
     ax.set_xlabel("Year")

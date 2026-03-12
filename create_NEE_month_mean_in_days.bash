@@ -2,7 +2,8 @@
 
 set -euo pipefail
 shopt -s nullglob
- 
+
+# switch_user spreads-lnd
 module load intel-2021.6.0/cdo-threadsafe/2.1.1-lyjsw
 # Mitigate HDF5 attribute access issues and avoid multi-thread races
 # export OMP_NUM_THREADS=${OMP_NUM_THREADS:-1}
@@ -18,8 +19,8 @@ YEAR_END=2006
 # and log them as missing (since they are not usable for our purpose) 
 # ERROR: cdo(3) select (Abort): Input streams have different number of variables per timestep! terminate called recursively terminate called without an active exception 
 START_DAY=1  # files 2006-01-01, 2007-01-01 bugged
-START_MONTH=2
-LAST_MONTH=2     # files 2006-01-01, 2007-01-01 bugged
+START_MONTH=1
+LAST_MONTH=12     # files 2006-01-01, 2007-01-01 bugged
 
 # LAST_MONTH="01". - CDO bug for this month using the for with seq -w, so we use the variable instead !! BIZARR
 MEMBERS=("0001" "0002" "0003" "0004" "0005" "0006" "0007" "0008" "0009" "0010" "0011" "0012" "0013" "0014" "0015" "0016" "0017" "0018" "0019" "0020" "0021" "0022" "0023" "0024" "0025" "0026" "0027" "0028" "0029" "0030")

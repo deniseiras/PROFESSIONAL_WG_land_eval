@@ -74,6 +74,15 @@ Command-line arguments (defaults shown)
 - --fluxnet-value-col NEE_VUT_REF: name of the column with NEE
 - --fluxnet-timestamp-fmt %Y%m: timestamp format in the CSV
 
+FluxNET overlays
+- By default (when site mappings are available), all region sites are overlaid:
+  - Individual site series are drawn as faint red lines (alpha=0.1)
+  - The time-aligned mean across those sites is drawn as a prominent red line (alpha=0.6) labeled "FluxNET sites"
+- Global region: only the mean line is plotted (individual site lines are suppressed)
+- Single mode with --fluxnet-csv: the provided CSV is drawn in orange in addition to the site overlays and mean
+- CSV parsing uses the --fluxnet-* options; rows with -9999 are ignored
+- In "all" mode the legend is consolidated in the first subplot; the "FluxNET sites" entry is guaranteed to appear if any region includes site overlays
+
 Examples
 - Plot all regions with defaults
   python plot_NEE_regions.py --mode all --in-dir ./data/out --out-dir ./data/figures_out
@@ -101,19 +110,43 @@ Inputs expected in ./data/FluxNET
 
 What it does
 - Filters FluxNET_sites_info.csv to filetype=FLUX-MET and the requested subset level (e.g., _SUBSET_MM_)
-- Optionally selects the “best” row per SITE_ID by longest coverage and latest timestamp
-- Selects the nearest site to each region’s center (or to a single specified region) among allowed SITE_IDs
-- Outputs a JSON with region->site and site_id->file mappings
+- Selects the “best” row per SITE_ID by longest coverage and latest timestamp (when available)
+- Supports three selection modes:
+  - Single region: select the nearest site to the region’s center among allowed SITE_IDs
+  - --all-regions: select one representative site per predefined region
+  - --all-sites: list all available SITE_IDs per region (excluding Global) and provide a representative LOCATION_LAT/LONG per region; also build a site_id_to_file mapping for best files per site
+- Outputs JSON tailored to the chosen mode (see below)
 
 Usage
 - Single region
   python build_fluxnet_site_map.py --region "South American Tropical" --subset MM --out-json ./data/FluxNET/site_map_SAT_MM.json
 
-- All regions
+- All regions (one representative site per region)
   python build_fluxnet_site_map.py --all-regions --subset MM --out-json ./data/FluxNET/site_map_all_MM.json
 
+- All sites per region (full site lists for overlays)
+  python build_fluxnet_site_map.py --all-sites --subset MM --out-json ./data/FluxNET/site_map_all_sites_MM.json
+
 Output
-- JSON printed to stdout or written to --out-json
+- Single region:
+  {
+    "selected_region": "...",
+    "selected_site": {"SITE_ID": "...", "LOCATION_LAT": ..., "LOCATION_LONG": ...},
+    "site_id_to_file": {"SITE_ID": "./data/FluxNET/<filename>.csv", ...}
+  }
+- --all-regions:
+  {
+    "region_to_site": {"Region": {"SITE_ID": "...", "LOCATION_LAT": ..., "LOCATION_LONG": ...}, ...},
+    "site_id_to_file": {"SITE_ID": "./data/FluxNET/<filename>.csv", ...}
+  }
+- --all-sites (recommended for multi-site overlays):
+  {
+    "regions": {"Region": {"SITE_IDS": ["SITE_ID", ...], "LOCATION_LAT": ..., "LOCATION_LONG": ...}, ...},
+    "site_id_to_file": {"SITE_ID": "./data/FluxNET/<filename>.csv", ...}
+  }
+
+Notes
+- The "Global" region is not explicitly listed under "regions" for --all-sites, but you can derive a global overlay by aggregating across every SITE_ID in site_id_to_file.
 
 ---
 

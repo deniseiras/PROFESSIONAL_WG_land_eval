@@ -20,7 +20,7 @@ PLOT_MODE = "all"
 # PLOT_MODE = "single"
 # SELECTED_REGION = "Global"
 SELECTED_REGION = "South American Tropical"
-SPATIAL_AGG = "nearest_site"  # one of: boxmean, nearest_center, nearest_site
+SPATIAL_AGG = "boxmean"  # one of: boxmean, nearest_center, nearest_site
 
 CSV_V_COL = "NEE_VUT_REF"
 
@@ -188,6 +188,536 @@ REGIONS = {
     },
 }
 
+
+# Additional FluxNET site metadata to overlay multiple site CSVs per region
+REGION_SITES = {
+"regions": {
+"North American Boreal": {
+"SITE_IDS": [
+"CA-Man",
+"CA-NS1",
+"CA-NS2",
+"CA-NS3",
+"CA-NS4",
+"CA-NS5",
+"CA-NS6",
+"CA-NS7",
+"CA-Oas",
+"CA-Obs",
+"CA-SF1",
+"CA-SF2",
+"CA-SF3",
+"GL-NuF",
+"US-Ivo",
+"US-Prr"
+],
+"LOCATION_LAT": 54.485,
+"LOCATION_LONG": -105.8176
+},
+"North American Temperate": {
+"SITE_IDS": [
+"CA-Gro",
+"CA-Qfo",
+"CA-TP1",
+"CA-TP2",
+"CA-TP3",
+"CA-TP4",
+"CA-TPD",
+"US-AR1",
+"US-AR2",
+"US-ARM",
+"US-ARb",
+"US-ARc",
+"US-Blo",
+"US-CRT",
+"US-Cop",
+"US-GBT",
+"US-GLE",
+"US-Goo",
+"US-Ha1",
+"US-IB2",
+"US-LWW",
+"US-Lin",
+"US-Los",
+"US-MMS",
+"US-Me1",
+"US-Me2",
+"US-Me3",
+"US-Me4",
+"US-Me5",
+"US-Me6",
+"US-Myb",
+"US-NR1",
+"US-Ne1",
+"US-Ne2",
+"US-Ne3",
+"US-ORv",
+"US-Oho",
+"US-PFa",
+"US-SRC",
+"US-SRG",
+"US-SRM",
+"US-Sta",
+"US-Syv",
+"US-Ton",
+"US-Tw1",
+"US-Tw2",
+"US-Tw3",
+"US-Tw4",
+"US-Twt",
+"US-UMB",
+"US-UMd",
+"US-Var",
+"US-WCr",
+"US-WPT",
+"US-Whs",
+"US-Wi0",
+"US-Wi1",
+"US-Wi2",
+"US-Wi3",
+"US-Wi4",
+"US-Wi5",
+"US-Wi6",
+"US-Wi7",
+"US-Wi8",
+"US-Wi9",
+"US-Wkg"
+],
+"LOCATION_LAT": 41.1797,
+"LOCATION_LONG": -96.4397
+},
+"South American Tropical": {
+"SITE_IDS": [
+"BR-Sa1",
+"BR-Sa3",
+"GF-Guy",
+"PA-SPn",
+"PA-SPs"
+],
+"LOCATION_LAT": -3.018,
+"LOCATION_LONG": -54.9714
+},
+"South American Temperate": {
+"SITE_IDS": [
+"AR-SLu",
+"AR-Vir"
+],
+"LOCATION_LAT": -28.2395,
+"LOCATION_LONG": -56.1886
+},
+"Northern Africa": {
+"SITE_IDS": [
+"SN-Dhr"
+],
+"LOCATION_LAT": 15.4028,
+"LOCATION_LONG": -15.4322
+},
+"Southern Africa": {
+"SITE_IDS": [
+"ZM-Mon"
+],
+"LOCATION_LAT": -15.4391,
+"LOCATION_LONG": 23.2525
+},
+"Eurasian Boreal": {
+"SITE_IDS": [
+"DE-Akm",
+"DE-Geb",
+"DE-Gri",
+"DE-Hai",
+"DE-Kli",
+"DE-Lnf",
+"DE-Obe",
+"DE-Spw",
+"DE-Tha",
+"DE-Zrk",
+"DK-Eng",
+"DK-Sor",
+"FI-Hyy",
+"FI-Jok",
+"FI-Let",
+"FI-Lom",
+"FI-Sod",
+"RU-Che",
+"RU-Fyo",
+"RU-Ha1"
+],
+"LOCATION_LAT": 54.7252,
+"LOCATION_LONG": 90.0022
+},
+"Eurasian Temperate": {
+"SITE_IDS": [
+"AT-Neu",
+"CH-Cha",
+"CH-Dav",
+"CH-Fru",
+"CH-Lae",
+"CH-Oe1",
+"CH-Oe2",
+"CN-Cha",
+"CN-Cng",
+"CN-Dan",
+"CN-Du2",
+"CN-Du3",
+"CN-Ha2",
+"CN-HaM",
+"CN-Sw2",
+"CZ-BK1",
+"CZ-BK2",
+"CZ-wet",
+"DE-Lkb",
+"DE-SfN",
+"ES-Amo",
+"ES-LJu",
+"ES-LgS",
+"ES-Ln2",
+"FR-Fon",
+"FR-Gri",
+"FR-LBr",
+"FR-Pue",
+"IT-BCi",
+"IT-CA1",
+"IT-CA2",
+"IT-CA3",
+"IT-Col",
+"IT-Cp2",
+"IT-Cpz",
+"IT-Isp",
+"IT-La2",
+"IT-Lav",
+"IT-MBo",
+"IT-Noe",
+"IT-PT1",
+"IT-Ren",
+"IT-Ro1",
+"IT-Ro2",
+"IT-SR2",
+"IT-SRo",
+"IT-Tor",
+"JP-MBF",
+"JP-SMF"
+],
+"LOCATION_LAT": 30.4978,
+"LOCATION_LONG": 91.0664
+},
+"Tropical Asia": {
+"SITE_IDS": [
+"MY-PSO"
+],
+"LOCATION_LAT": 2.973,
+"LOCATION_LONG": 102.3062
+},
+"Australia": {
+"SITE_IDS": [
+"AU-ASM",
+"AU-Ade",
+"AU-Cpr",
+"AU-Cum",
+"AU-DaP",
+"AU-DaS",
+"AU-Dry",
+"AU-Emr",
+"AU-Fog",
+"AU-GWW",
+"AU-Gin",
+"AU-How",
+"AU-Lox",
+"AU-RDF",
+"AU-Rig",
+"AU-Rob",
+"AU-Stp",
+"AU-TTE",
+"AU-Tum",
+"AU-Wac",
+"AU-Whr",
+"AU-Wom",
+"AU-Ync"
+],
+"LOCATION_LAT": -22.283,
+"LOCATION_LONG": 133.249
+},
+"Europe": {
+"SITE_IDS": [
+"AT-Neu",
+"BE-Bra",
+"BE-Lon",
+"BE-Vie",
+"CH-Cha",
+"CH-Dav",
+"CH-Fru",
+"CH-Lae",
+"CH-Oe1",
+"CH-Oe2",
+"CZ-BK1",
+"CZ-BK2",
+"CZ-wet",
+"DE-Akm",
+"DE-Geb",
+"DE-Gri",
+"DE-Hai",
+"DE-Kli",
+"DE-Lkb",
+"DE-Lnf",
+"DE-Obe",
+"DE-RuR",
+"DE-RuS",
+"DE-Seh",
+"DE-SfN",
+"DE-Spw",
+"DE-Tha",
+"DE-Zrk",
+"DK-Eng",
+"DK-Fou",
+"DK-Sor",
+"ES-Amo",
+"ES-LJu",
+"ES-LgS",
+"ES-Ln2",
+"FI-Hyy",
+"FI-Jok",
+"FI-Let",
+"FI-Lom",
+"FI-Sod",
+"FR-Fon",
+"FR-Gri",
+"FR-LBr",
+"FR-Pue",
+"IT-BCi",
+"IT-CA1",
+"IT-CA2",
+"IT-CA3",
+"IT-Col",
+"IT-Cp2",
+"IT-Cpz",
+"IT-Isp",
+"IT-La2",
+"IT-Lav",
+"IT-MBo",
+"IT-Noe",
+"IT-PT1",
+"IT-Ren",
+"IT-Ro1",
+"IT-Ro2",
+"IT-SR2",
+"IT-SRo",
+"IT-Tor",
+"NL-Hor",
+"NL-Loo",
+"RU-Fyo"
+],
+"LOCATION_LAT": 51.8922,
+"LOCATION_LONG": 14.0337
+}
+},
+"site_id_to_file": {
+"AR-SLu": "./data/FluxNET/FLX_AR-SLu_FLUXNET2015_SUBSET_MM_2009-2011_1-4.csv",
+"AR-Vir": "./data/FluxNET/FLX_AR-Vir_FLUXNET2015_SUBSET_MM_2009-2012_1-4.csv",
+"AT-Neu": "./data/FluxNET/FLX_AT-Neu_FLUXNET2015_SUBSET_MM_2002-2012_1-4.csv",
+"AU-ASM": "./data/FluxNET/FLX_AU-ASM_FLUXNET2015_SUBSET_MM_2010-2014_2-4.csv",
+"AU-Ade": "./data/FluxNET/FLX_AU-Ade_FLUXNET2015_SUBSET_MM_2007-2009_1-4.csv",
+"AU-Cpr": "./data/FluxNET/FLX_AU-Cpr_FLUXNET2015_SUBSET_MM_2010-2014_2-4.csv",
+"AU-Cum": "./data/FluxNET/FLX_AU-Cum_FLUXNET2015_SUBSET_MM_2012-2014_2-4.csv",
+"AU-DaP": "./data/FluxNET/FLX_AU-DaP_FLUXNET2015_SUBSET_MM_2007-2013_2-4.csv",
+"AU-DaS": "./data/FluxNET/FLX_AU-DaS_FLUXNET2015_SUBSET_MM_2008-2014_2-4.csv",
+"AU-Dry": "./data/FluxNET/FLX_AU-Dry_FLUXNET2015_SUBSET_MM_2008-2014_2-4.csv",
+"AU-Emr": "./data/FluxNET/FLX_AU-Emr_FLUXNET2015_SUBSET_MM_2011-2013_1-4.csv",
+"AU-Fog": "./data/FluxNET/FLX_AU-Fog_FLUXNET2015_SUBSET_MM_2006-2008_1-4.csv",
+"AU-GWW": "./data/FluxNET/FLX_AU-GWW_FLUXNET2015_SUBSET_MM_2013-2014_1-4.csv",
+"AU-Gin": "./data/FluxNET/FLX_AU-Gin_FLUXNET2015_SUBSET_MM_2011-2014_1-4.csv",
+"AU-How": "./data/FluxNET/FLX_AU-How_FLUXNET2015_SUBSET_MM_2001-2014_1-4.csv",
+"AU-Lox": "./data/FluxNET/FLX_AU-Lox_FLUXNET2015_SUBSET_MM_2008-2009_1-4.csv",
+"AU-RDF": "./data/FluxNET/FLX_AU-RDF_FLUXNET2015_SUBSET_MM_2011-2013_1-4.csv",
+"AU-Rig": "./data/FluxNET/FLX_AU-Rig_FLUXNET2015_SUBSET_MM_2011-2014_2-4.csv",
+"AU-Rob": "./data/FluxNET/FLX_AU-Rob_FLUXNET2015_SUBSET_MM_2014-2014_1-4.csv",
+"AU-Stp": "./data/FluxNET/FLX_AU-Stp_FLUXNET2015_SUBSET_MM_2008-2014_1-4.csv",
+"AU-TTE": "./data/FluxNET/FLX_AU-TTE_FLUXNET2015_SUBSET_MM_2012-2014_2-4.csv",
+"AU-Tum": "./data/FluxNET/FLX_AU-Tum_FLUXNET2015_SUBSET_MM_2001-2014_2-4.csv",
+"AU-Wac": "./data/FluxNET/FLX_AU-Wac_FLUXNET2015_SUBSET_MM_2005-2008_1-4.csv",
+"AU-Whr": "./data/FluxNET/FLX_AU-Whr_FLUXNET2015_SUBSET_MM_2011-2014_2-4.csv",
+"AU-Wom": "./data/FluxNET/FLX_AU-Wom_FLUXNET2015_SUBSET_MM_2010-2014_1-4.csv",
+"AU-Ync": "./data/FluxNET/FLX_AU-Ync_FLUXNET2015_SUBSET_MM_2012-2014_1-4.csv",
+"BE-Bra": "./data/FluxNET/FLX_BE-Bra_FLUXNET2015_SUBSET_MM_1996-2014_2-4.csv",
+"BE-Lon": "./data/FluxNET/FLX_BE-Lon_FLUXNET2015_SUBSET_MM_2004-2014_1-4.csv",
+"BE-Vie": "./data/FluxNET/FLX_BE-Vie_FLUXNET2015_SUBSET_MM_1996-2014_1-4.csv",
+"BR-Sa1": "./data/FluxNET/FLX_BR-Sa1_FLUXNET2015_SUBSET_MM_2002-2011_1-4.csv",
+"BR-Sa3": "./data/FluxNET/FLX_BR-Sa3_FLUXNET2015_SUBSET_MM_2000-2004_1-4.csv",
+"CA-Gro": "./data/FluxNET/FLX_CA-Gro_FLUXNET2015_SUBSET_MM_2003-2014_1-4.csv",
+"CA-Man": "./data/FluxNET/FLX_CA-Man_FLUXNET2015_SUBSET_MM_1994-2008_1-4.csv",
+"CA-NS1": "./data/FluxNET/FLX_CA-NS1_FLUXNET2015_SUBSET_MM_2001-2005_2-4.csv",
+"CA-NS2": "./data/FluxNET/FLX_CA-NS2_FLUXNET2015_SUBSET_MM_2001-2005_1-4.csv",
+"CA-NS3": "./data/FluxNET/FLX_CA-NS3_FLUXNET2015_SUBSET_MM_2001-2005_1-4.csv",
+"CA-NS4": "./data/FluxNET/FLX_CA-NS4_FLUXNET2015_SUBSET_MM_2002-2005_1-4.csv",
+"CA-NS5": "./data/FluxNET/FLX_CA-NS5_FLUXNET2015_SUBSET_MM_2001-2005_1-4.csv",
+"CA-NS6": "./data/FluxNET/FLX_CA-NS6_FLUXNET2015_SUBSET_MM_2001-2005_1-4.csv",
+"CA-NS7": "./data/FluxNET/FLX_CA-NS7_FLUXNET2015_SUBSET_MM_2002-2005_1-4.csv",
+"CA-Oas": "./data/FluxNET/FLX_CA-Oas_FLUXNET2015_SUBSET_MM_1996-2010_1-4.csv",
+"CA-Obs": "./data/FluxNET/FLX_CA-Obs_FLUXNET2015_SUBSET_MM_1997-2010_1-4.csv",
+"CA-Qfo": "./data/FluxNET/FLX_CA-Qfo_FLUXNET2015_SUBSET_MM_2003-2010_1-4.csv",
+"CA-SF1": "./data/FluxNET/FLX_CA-SF1_FLUXNET2015_SUBSET_MM_2003-2006_1-4.csv",
+"CA-SF2": "./data/FluxNET/FLX_CA-SF2_FLUXNET2015_SUBSET_MM_2001-2005_1-4.csv",
+"CA-SF3": "./data/FluxNET/FLX_CA-SF3_FLUXNET2015_SUBSET_MM_2001-2006_1-4.csv",
+"CA-TP1": "./data/FluxNET/FLX_CA-TP1_FLUXNET2015_SUBSET_MM_2002-2014_2-4.csv",
+"CA-TP2": "./data/FluxNET/FLX_CA-TP2_FLUXNET2015_SUBSET_MM_2002-2007_1-4.csv",
+"CA-TP3": "./data/FluxNET/FLX_CA-TP3_FLUXNET2015_SUBSET_MM_2002-2014_1-4.csv",
+"CA-TP4": "./data/FluxNET/FLX_CA-TP4_FLUXNET2015_SUBSET_MM_2002-2014_1-4.csv",
+"CA-TPD": "./data/FluxNET/FLX_CA-TPD_FLUXNET2015_SUBSET_MM_2012-2014_1-4.csv",
+"CG-Tch": "./data/FluxNET/FLX_CG-Tch_FLUXNET2015_SUBSET_MM_2006-2009_1-4.csv",
+"CH-Cha": "./data/FluxNET/FLX_CH-Cha_FLUXNET2015_SUBSET_MM_2005-2014_2-4.csv",
+"CH-Dav": "./data/FluxNET/FLX_CH-Dav_FLUXNET2015_SUBSET_MM_1997-2014_1-4.csv",
+"CH-Fru": "./data/FluxNET/FLX_CH-Fru_FLUXNET2015_SUBSET_MM_2005-2014_2-4.csv",
+"CH-Lae": "./data/FluxNET/FLX_CH-Lae_FLUXNET2015_SUBSET_MM_2004-2014_1-4.csv",
+"CH-Oe1": "./data/FluxNET/FLX_CH-Oe1_FLUXNET2015_SUBSET_MM_2002-2008_2-4.csv",
+"CH-Oe2": "./data/FluxNET/FLX_CH-Oe2_FLUXNET2015_SUBSET_MM_2004-2014_1-4.csv",
+"CN-Cha": "./data/FluxNET/FLX_CN-Cha_FLUXNET2015_SUBSET_MM_2003-2005_1-4.csv",
+"CN-Cng": "./data/FluxNET/FLX_CN-Cng_FLUXNET2015_SUBSET_MM_2007-2010_1-4.csv",
+"CN-Dan": "./data/FluxNET/FLX_CN-Dan_FLUXNET2015_SUBSET_MM_2004-2005_1-4.csv",
+"CN-Din": "./data/FluxNET/FLX_CN-Din_FLUXNET2015_SUBSET_MM_2003-2005_1-4.csv",
+"CN-Du2": "./data/FluxNET/FLX_CN-Du2_FLUXNET2015_SUBSET_MM_2006-2008_1-4.csv",
+"CN-Du3": "./data/FluxNET/FLX_CN-Du3_FLUXNET2015_SUBSET_MM_2009-2010_1-4.csv",
+"CN-Ha2": "./data/FluxNET/FLX_CN-Ha2_FLUXNET2015_SUBSET_MM_2003-2005_1-4.csv",
+"CN-HaM": "./data/FluxNET/FLX_CN-HaM_FLUXNET2015_SUBSET_MM_2002-2004_1-4.csv",
+"CN-Qia": "./data/FluxNET/FLX_CN-Qia_FLUXNET2015_SUBSET_MM_2003-2005_1-4.csv",
+"CN-Sw2": "./data/FluxNET/FLX_CN-Sw2_FLUXNET2015_SUBSET_MM_2010-2012_1-4.csv",
+"CZ-BK1": "./data/FluxNET/FLX_CZ-BK1_FLUXNET2015_SUBSET_MM_2004-2014_2-4.csv",
+"CZ-BK2": "./data/FluxNET/FLX_CZ-BK2_FLUXNET2015_SUBSET_MM_2004-2012_2-4.csv",
+"CZ-wet": "./data/FluxNET/FLX_CZ-wet_FLUXNET2015_SUBSET_MM_2006-2014_1-4.csv",
+"DE-Akm": "./data/FluxNET/FLX_DE-Akm_FLUXNET2015_SUBSET_MM_2009-2014_1-4.csv",
+"DE-Geb": "./data/FluxNET/FLX_DE-Geb_FLUXNET2015_SUBSET_MM_2001-2014_1-4.csv",
+"DE-Gri": "./data/FluxNET/FLX_DE-Gri_FLUXNET2015_SUBSET_MM_2004-2014_1-4.csv",
+"DE-Hai": "./data/FluxNET/FLX_DE-Hai_FLUXNET2015_SUBSET_MM_2000-2012_1-4.csv",
+"DE-Kli": "./data/FluxNET/FLX_DE-Kli_FLUXNET2015_SUBSET_MM_2004-2014_1-4.csv",
+"DE-Lkb": "./data/FluxNET/FLX_DE-Lkb_FLUXNET2015_SUBSET_MM_2009-2013_1-4.csv",
+"DE-Lnf": "./data/FluxNET/FLX_DE-Lnf_FLUXNET2015_SUBSET_MM_2002-2012_1-4.csv",
+"DE-Obe": "./data/FluxNET/FLX_DE-Obe_FLUXNET2015_SUBSET_MM_2008-2014_1-4.csv",
+"DE-RuR": "./data/FluxNET/FLX_DE-RuR_FLUXNET2015_SUBSET_MM_2011-2014_1-4.csv",
+"DE-RuS": "./data/FluxNET/FLX_DE-RuS_FLUXNET2015_SUBSET_MM_2011-2014_1-4.csv",
+"DE-Seh": "./data/FluxNET/FLX_DE-Seh_FLUXNET2015_SUBSET_MM_2007-2010_1-4.csv",
+"DE-SfN": "./data/FluxNET/FLX_DE-SfN_FLUXNET2015_SUBSET_MM_2012-2014_1-4.csv",
+"DE-Spw": "./data/FluxNET/FLX_DE-Spw_FLUXNET2015_SUBSET_MM_2010-2014_1-4.csv",
+"DE-Tha": "./data/FluxNET/FLX_DE-Tha_FLUXNET2015_SUBSET_MM_1996-2014_1-4.csv",
+"DE-Zrk": "./data/FluxNET/FLX_DE-Zrk_FLUXNET2015_SUBSET_MM_2013-2014_2-4.csv",
+"DK-Eng": "./data/FluxNET/FLX_DK-Eng_FLUXNET2015_SUBSET_MM_2005-2008_1-4.csv",
+"DK-Fou": "./data/FluxNET/FLX_DK-Fou_FLUXNET2015_SUBSET_MM_2005-2005_1-4.csv",
+"DK-Sor": "./data/FluxNET/FLX_DK-Sor_FLUXNET2015_SUBSET_MM_1996-2014_2-4.csv",
+"ES-Amo": "./data/FluxNET/FLX_ES-Amo_FLUXNET2015_SUBSET_MM_2007-2012_1-4.csv",
+"ES-LJu": "./data/FluxNET/FLX_ES-LJu_FLUXNET2015_SUBSET_MM_2004-2013_1-4.csv",
+"ES-LgS": "./data/FluxNET/FLX_ES-LgS_FLUXNET2015_SUBSET_MM_2007-2009_1-4.csv",
+"ES-Ln2": "./data/FluxNET/FLX_ES-Ln2_FLUXNET2015_SUBSET_MM_2009-2009_1-4.csv",
+"FI-Hyy": "./data/FluxNET/FLX_FI-Hyy_FLUXNET2015_SUBSET_MM_1996-2014_1-4.csv",
+"FI-Jok": "./data/FluxNET/FLX_FI-Jok_FLUXNET2015_SUBSET_MM_2000-2003_1-4.csv",
+"FI-Let": "./data/FluxNET/FLX_FI-Let_FLUXNET2015_SUBSET_MM_2009-2012_1-4.csv",
+"FI-Lom": "./data/FluxNET/FLX_FI-Lom_FLUXNET2015_SUBSET_MM_2007-2009_1-4.csv",
+"FI-Sod": "./data/FluxNET/FLX_FI-Sod_FLUXNET2015_SUBSET_MM_2001-2014_1-4.csv",
+"FR-Fon": "./data/FluxNET/FLX_FR-Fon_FLUXNET2015_SUBSET_MM_2005-2014_1-4.csv",
+"FR-Gri": "./data/FluxNET/FLX_FR-Gri_FLUXNET2015_SUBSET_MM_2004-2014_1-4.csv",
+"FR-LBr": "./data/FluxNET/FLX_FR-LBr_FLUXNET2015_SUBSET_MM_1996-2008_1-4.csv",
+"FR-Pue": "./data/FluxNET/FLX_FR-Pue_FLUXNET2015_SUBSET_MM_2000-2014_2-4.csv",
+"GF-Guy": "./data/FluxNET/FLX_GF-Guy_FLUXNET2015_SUBSET_MM_2004-2014_2-4.csv",
+"GH-Ank": "./data/FluxNET/FLX_GH-Ank_FLUXNET2015_SUBSET_MM_2011-2014_1-4.csv",
+"GL-NuF": "./data/FluxNET/FLX_GL-NuF_FLUXNET2015_SUBSET_MM_2008-2014_1-4.csv",
+"GL-ZaF": "./data/FluxNET/FLX_GL-ZaF_FLUXNET2015_SUBSET_MM_2008-2011_2-4.csv",
+"GL-ZaH": "./data/FluxNET/FLX_GL-ZaH_FLUXNET2015_SUBSET_MM_2000-2014_2-4.csv",
+"IT-BCi": "./data/FluxNET/FLX_IT-BCi_FLUXNET2015_SUBSET_MM_2004-2014_2-4.csv",
+"IT-CA1": "./data/FluxNET/FLX_IT-CA1_FLUXNET2015_SUBSET_MM_2011-2014_2-4.csv",
+"IT-CA2": "./data/FluxNET/FLX_IT-CA2_FLUXNET2015_SUBSET_MM_2011-2014_2-4.csv",
+"IT-CA3": "./data/FluxNET/FLX_IT-CA3_FLUXNET2015_SUBSET_MM_2011-2014_2-4.csv",
+"IT-Col": "./data/FluxNET/FLX_IT-Col_FLUXNET2015_SUBSET_MM_1996-2014_1-4.csv",
+"IT-Cp2": "./data/FluxNET/FLX_IT-Cp2_FLUXNET2015_SUBSET_MM_2012-2014_2-4.csv",
+"IT-Cpz": "./data/FluxNET/FLX_IT-Cpz_FLUXNET2015_SUBSET_MM_1997-2009_1-4.csv",
+"IT-Isp": "./data/FluxNET/FLX_IT-Isp_FLUXNET2015_SUBSET_MM_2013-2014_1-4.csv",
+"IT-La2": "./data/FluxNET/FLX_IT-La2_FLUXNET2015_SUBSET_MM_2000-2002_1-4.csv",
+"IT-Lav": "./data/FluxNET/FLX_IT-Lav_FLUXNET2015_SUBSET_MM_2003-2014_2-4.csv",
+"IT-MBo": "./data/FluxNET/FLX_IT-MBo_FLUXNET2015_SUBSET_MM_2003-2013_1-4.csv",
+"IT-Noe": "./data/FluxNET/FLX_IT-Noe_FLUXNET2015_SUBSET_MM_2004-2014_2-4.csv",
+"IT-PT1": "./data/FluxNET/FLX_IT-PT1_FLUXNET2015_SUBSET_MM_2002-2004_1-4.csv",
+"IT-Ren": "./data/FluxNET/FLX_IT-Ren_FLUXNET2015_SUBSET_MM_1998-2013_1-4.csv",
+"IT-Ro1": "./data/FluxNET/FLX_IT-Ro1_FLUXNET2015_SUBSET_MM_2000-2008_1-4.csv",
+"IT-Ro2": "./data/FluxNET/FLX_IT-Ro2_FLUXNET2015_SUBSET_MM_2002-2012_1-4.csv",
+"IT-SR2": "./data/FluxNET/FLX_IT-SR2_FLUXNET2015_SUBSET_MM_2013-2014_1-4.csv",
+"IT-SRo": "./data/FluxNET/FLX_IT-SRo_FLUXNET2015_SUBSET_MM_1999-2012_1-4.csv",
+"IT-Tor": "./data/FluxNET/FLX_IT-Tor_FLUXNET2015_SUBSET_MM_2008-2014_2-4.csv",
+"JP-MBF": "./data/FluxNET/FLX_JP-MBF_FLUXNET2015_SUBSET_MM_2003-2005_1-4.csv",
+"JP-SMF": "./data/FluxNET/FLX_JP-SMF_FLUXNET2015_SUBSET_MM_2002-2006_1-4.csv",
+"MY-PSO": "./data/FluxNET/FLX_MY-PSO_FLUXNET2015_SUBSET_MM_2003-2009_1-4.csv",
+"NL-Hor": "./data/FluxNET/FLX_NL-Hor_FLUXNET2015_SUBSET_MM_2004-2011_1-4.csv",
+"NL-Loo": "./data/FluxNET/FLX_NL-Loo_FLUXNET2015_SUBSET_MM_1996-2014_1-4.csv",
+"PA-SPn": "./data/FluxNET/FLX_PA-SPn_FLUXNET2015_SUBSET_MM_2007-2009_1-4.csv",
+"PA-SPs": "./data/FluxNET/FLX_PA-SPs_FLUXNET2015_SUBSET_MM_2007-2009_1-4.csv",
+"RU-Che": "./data/FluxNET/FLX_RU-Che_FLUXNET2015_SUBSET_MM_2002-2005_1-4.csv",
+"RU-Cok": "./data/FluxNET/FLX_RU-Cok_FLUXNET2015_SUBSET_MM_2003-2014_2-4.csv",
+"RU-Fyo": "./data/FluxNET/FLX_RU-Fyo_FLUXNET2015_SUBSET_MM_1998-2014_2-4.csv",
+"RU-Ha1": "./data/FluxNET/FLX_RU-Ha1_FLUXNET2015_SUBSET_MM_2002-2004_1-4.csv",
+"SD-Dem": "./data/FluxNET/FLX_SD-Dem_FLUXNET2015_SUBSET_MM_2005-2009_2-4.csv",
+"SJ-Adv": "./data/FluxNET/FLX_SJ-Adv_FLUXNET2015_SUBSET_MM_2011-2014_1-4.csv",
+"SJ-Blv": "./data/FluxNET/FLX_SJ-Blv_FLUXNET2015_SUBSET_MM_2008-2009_1-4.csv",
+"SN-Dhr": "./data/FluxNET/FLX_SN-Dhr_FLUXNET2015_SUBSET_MM_2010-2013_1-4.csv",
+"US-AR1": "./data/FluxNET/FLX_US-AR1_FLUXNET2015_SUBSET_MM_2009-2012_1-4.csv",
+"US-AR2": "./data/FluxNET/FLX_US-AR2_FLUXNET2015_SUBSET_MM_2009-2012_1-4.csv",
+"US-ARM": "./data/FluxNET/FLX_US-ARM_FLUXNET2015_SUBSET_MM_2003-2012_1-4.csv",
+"US-ARb": "./data/FluxNET/FLX_US-ARb_FLUXNET2015_SUBSET_MM_2005-2006_1-4.csv",
+"US-ARc": "./data/FluxNET/FLX_US-ARc_FLUXNET2015_SUBSET_MM_2005-2006_1-4.csv",
+"US-Atq": "./data/FluxNET/FLX_US-Atq_FLUXNET2015_SUBSET_MM_2003-2008_1-4.csv",
+"US-Blo": "./data/FluxNET/FLX_US-Blo_FLUXNET2015_SUBSET_MM_1997-2007_1-4.csv",
+"US-CRT": "./data/FluxNET/FLX_US-CRT_FLUXNET2015_SUBSET_MM_2011-2013_1-4.csv",
+"US-Cop": "./data/FluxNET/FLX_US-Cop_FLUXNET2015_SUBSET_MM_2001-2007_1-4.csv",
+"US-GBT": "./data/FluxNET/FLX_US-GBT_FLUXNET2015_SUBSET_MM_1999-2006_1-4.csv",
+"US-GLE": "./data/FluxNET/FLX_US-GLE_FLUXNET2015_SUBSET_MM_2004-2014_1-4.csv",
+"US-Goo": "./data/FluxNET/FLX_US-Goo_FLUXNET2015_SUBSET_MM_2002-2006_1-4.csv",
+"US-Ha1": "./data/FluxNET/FLX_US-Ha1_FLUXNET2015_SUBSET_MM_1991-2012_1-4.csv",
+"US-IB2": "./data/FluxNET/FLX_US-IB2_FLUXNET2015_SUBSET_MM_2004-2011_1-4.csv",
+"US-Ivo": "./data/FluxNET/FLX_US-Ivo_FLUXNET2015_SUBSET_MM_2004-2007_1-4.csv",
+"US-KS1": "./data/FluxNET/FLX_US-KS1_FLUXNET2015_SUBSET_MM_2002-2002_1-4.csv",
+"US-KS2": "./data/FluxNET/FLX_US-KS2_FLUXNET2015_SUBSET_MM_2003-2006_1-4.csv",
+"US-LWW": "./data/FluxNET/FLX_US-LWW_FLUXNET2015_SUBSET_MM_1997-1998_1-4.csv",
+"US-Lin": "./data/FluxNET/FLX_US-Lin_FLUXNET2015_SUBSET_MM_2009-2010_1-4.csv",
+"US-Los": "./data/FluxNET/FLX_US-Los_FLUXNET2015_SUBSET_MM_2000-2014_2-4.csv",
+"US-MMS": "./data/FluxNET/FLX_US-MMS_FLUXNET2015_SUBSET_MM_1999-2014_1-4.csv",
+"US-Me1": "./data/FluxNET/FLX_US-Me1_FLUXNET2015_SUBSET_MM_2004-2005_1-4.csv",
+"US-Me2": "./data/FluxNET/FLX_US-Me2_FLUXNET2015_SUBSET_MM_2002-2014_1-4.csv",
+"US-Me3": "./data/FluxNET/FLX_US-Me3_FLUXNET2015_SUBSET_MM_2004-2009_1-4.csv",
+"US-Me4": "./data/FluxNET/FLX_US-Me4_FLUXNET2015_SUBSET_MM_1996-2000_1-4.csv",
+"US-Me5": "./data/FluxNET/FLX_US-Me5_FLUXNET2015_SUBSET_MM_2000-2002_1-4.csv",
+"US-Me6": "./data/FluxNET/FLX_US-Me6_FLUXNET2015_SUBSET_MM_2010-2014_2-4.csv",
+"US-Myb": "./data/FluxNET/FLX_US-Myb_FLUXNET2015_SUBSET_MM_2010-2014_2-4.csv",
+"US-NR1": "./data/FluxNET/FLX_US-NR1_FLUXNET2015_SUBSET_MM_1998-2014_1-4.csv",
+"US-Ne1": "./data/FluxNET/FLX_US-Ne1_FLUXNET2015_SUBSET_MM_2001-2013_1-4.csv",
+"US-Ne2": "./data/FluxNET/FLX_US-Ne2_FLUXNET2015_SUBSET_MM_2001-2013_1-4.csv",
+"US-Ne3": "./data/FluxNET/FLX_US-Ne3_FLUXNET2015_SUBSET_MM_2001-2013_1-4.csv",
+"US-ORv": "./data/FluxNET/FLX_US-ORv_FLUXNET2015_SUBSET_MM_2011-2011_1-4.csv",
+"US-Oho": "./data/FluxNET/FLX_US-Oho_FLUXNET2015_SUBSET_MM_2004-2013_1-4.csv",
+"US-PFa": "./data/FluxNET/FLX_US-PFa_FLUXNET2015_SUBSET_MM_1995-2014_1-4.csv",
+"US-Prr": "./data/FluxNET/FLX_US-Prr_FLUXNET2015_SUBSET_MM_2010-2014_1-4.csv",
+"US-SRC": "./data/FluxNET/FLX_US-SRC_FLUXNET2015_SUBSET_MM_2008-2014_1-4.csv",
+"US-SRG": "./data/FluxNET/FLX_US-SRG_FLUXNET2015_SUBSET_MM_2008-2014_1-4.csv",
+"US-SRM": "./data/FluxNET/FLX_US-SRM_FLUXNET2015_SUBSET_MM_2004-2014_1-4.csv",
+"US-Sta": "./data/FluxNET/FLX_US-Sta_FLUXNET2015_SUBSET_MM_2005-2009_1-4.csv",
+"US-Syv": "./data/FluxNET/FLX_US-Syv_FLUXNET2015_SUBSET_MM_2001-2014_1-4.csv",
+"US-Ton": "./data/FluxNET/FLX_US-Ton_FLUXNET2015_SUBSET_MM_2001-2014_1-4.csv",
+"US-Tw1": "./data/FluxNET/FLX_US-Tw1_FLUXNET2015_SUBSET_MM_2012-2014_1-4.csv",
+"US-Tw2": "./data/FluxNET/FLX_US-Tw2_FLUXNET2015_SUBSET_MM_2012-2013_1-4.csv",
+"US-Tw3": "./data/FluxNET/FLX_US-Tw3_FLUXNET2015_SUBSET_MM_2013-2014_2-4.csv",
+"US-Tw4": "./data/FluxNET/FLX_US-Tw4_FLUXNET2015_SUBSET_MM_2013-2014_1-4.csv",
+"US-Twt": "./data/FluxNET/FLX_US-Twt_FLUXNET2015_SUBSET_MM_2009-2014_1-4.csv",
+"US-UMB": "./data/FluxNET/FLX_US-UMB_FLUXNET2015_SUBSET_MM_2000-2014_1-4.csv",
+"US-UMd": "./data/FluxNET/FLX_US-UMd_FLUXNET2015_SUBSET_MM_2007-2014_1-4.csv",
+"US-Var": "./data/FluxNET/FLX_US-Var_FLUXNET2015_SUBSET_MM_2000-2014_1-4.csv",
+"US-WCr": "./data/FluxNET/FLX_US-WCr_FLUXNET2015_SUBSET_MM_1999-2014_1-4.csv",
+"US-WPT": "./data/FluxNET/FLX_US-WPT_FLUXNET2015_SUBSET_MM_2011-2013_1-4.csv",
+"US-Whs": "./data/FluxNET/FLX_US-Whs_FLUXNET2015_SUBSET_MM_2007-2014_1-4.csv",
+"US-Wi0": "./data/FluxNET/FLX_US-Wi0_FLUXNET2015_SUBSET_MM_2002-2002_1-4.csv",
+"US-Wi1": "./data/FluxNET/FLX_US-Wi1_FLUXNET2015_SUBSET_MM_2003-2003_1-4.csv",
+"US-Wi2": "./data/FluxNET/FLX_US-Wi2_FLUXNET2015_SUBSET_MM_2003-2003_1-4.csv",
+"US-Wi3": "./data/FluxNET/FLX_US-Wi3_FLUXNET2015_SUBSET_MM_2002-2004_1-4.csv",
+"US-Wi4": "./data/FluxNET/FLX_US-Wi4_FLUXNET2015_SUBSET_MM_2002-2005_1-4.csv",
+"US-Wi5": "./data/FluxNET/FLX_US-Wi5_FLUXNET2015_SUBSET_MM_2004-2004_1-4.csv",
+"US-Wi6": "./data/FluxNET/FLX_US-Wi6_FLUXNET2015_SUBSET_MM_2002-2003_1-4.csv",
+"US-Wi7": "./data/FluxNET/FLX_US-Wi7_FLUXNET2015_SUBSET_MM_2005-2005_1-4.csv",
+"US-Wi8": "./data/FluxNET/FLX_US-Wi8_FLUXNET2015_SUBSET_MM_2002-2002_1-4.csv",
+"US-Wi9": "./data/FluxNET/FLX_US-Wi9_FLUXNET2015_SUBSET_MM_2004-2005_1-4.csv",
+"US-Wkg": "./data/FluxNET/FLX_US-Wkg_FLUXNET2015_SUBSET_MM_2004-2014_1-4.csv",
+"ZM-Mon": "./data/FluxNET/FLX_ZM-Mon_FLUXNET2015_SUBSET_MM_2000-2009_2-4.csv"
+}
+}
 
 # ----------------------------
 # CLI arguments
@@ -365,6 +895,8 @@ if PLOT_MODE == "all":
     fig, axes = plt.subplots(3, 4, figsize=(20, 12), constrained_layout=True)
     axes = axes.flatten()
 
+    fluxnet_any = False  # track if any FluxNET overlay exists in any panel
+
     for i, name in enumerate(REGIONS.keys()):
         ax = axes[i]
 
@@ -384,20 +916,42 @@ if PLOT_MODE == "all":
         # Plot MEAN line (main)
         ax.plot(x_time_plot, mean_series, color="tab:blue", linewidth=1.8, label="MEAN")
 
-        # Optional overlay: CSV time series for this region (from REGIONS dict)
-        auto_csv = REGIONS[name].get("csv_file")
-        if auto_csv is not None and os.path.exists(auto_csv):
-            try:
-                df_csv = pd.read_csv(auto_csv)
+        # Optional overlay: all FluxNET site time series and regional mean (if available)
+        try:
+            site_info = REGION_SITES.get("regions", {}).get(name, {})
+            # Include Global: use all known site ids if region is Global
+            if name == "Global":
+                site_ids = list(REGION_SITES.get("site_id_to_file", {}).keys())
+            else:
+                site_ids = site_info.get("SITE_IDS", [])
+
+            plot_individual = (name != "Global")
+            series_list = []
+            for sid in site_ids:
+                fpath = REGION_SITES.get("site_id_to_file", {}).get(sid)
+                if fpath is None or not os.path.exists(fpath):
+                    continue
+                df_csv = pd.read_csv(fpath)
                 ts_vals = pd.to_datetime(df_csv[CSV_T_COL].astype(str), format=CSV_T_FMT, errors="coerce")
                 y_vals = pd.to_numeric(df_csv[CSV_V_COL], errors="coerce")
                 # Ignore missing sentinel values -9999 in the CSV
                 mask = ts_vals.notna() & y_vals.notna() & (y_vals != -9999)
-                ts_vals = ts_vals[mask]
-                y_vals = y_vals[mask]
-                ax.plot(ts_vals, y_vals, color="tab:red", linewidth=1.6, label="Reference CSV")
-            except Exception as e:
-                print(f"Warning: failed to overlay CSV '{auto_csv}' for region '{name}': {e}")
+                if not mask.any():
+                    continue
+                # Plot faint individual site lines (skip for Global)
+                if plot_individual:
+                    ax.plot(ts_vals[mask], y_vals[mask], color="tab:red", alpha=0.1, linewidth=0.8, label=None)
+                # Collect for mean
+                s = pd.Series(y_vals[mask].values, index=pd.DatetimeIndex(ts_vals[mask].values))
+                series_list.append(s)
+
+            if len(series_list) > 0:
+                df_reg = pd.concat(series_list, axis=1)
+                reg_mean = df_reg.mean(axis=1, skipna=True)
+                ax.plot(reg_mean.index, reg_mean.values, color="tab:red", alpha=0.6, linewidth=2.0, label="FluxNET sites")
+                fluxnet_any = True
+        except Exception as e:
+            print(f"Warning: failed to overlay FluxNET sites for region '{name}': {e}")
 
         ax.set_title(name)
         ax.set_xlabel("Year")
@@ -417,6 +971,11 @@ if PLOT_MODE == "all":
         axes[j].axis("off")
 
     # Put a single legend in the first axis to avoid clutter
+    # Ensure 'FluxNET sites' appears even if not in the first panel but present elsewhere
+    if fluxnet_any:
+        existing_labels = [lbl for _, lbl in zip(*axes[0].get_legend_handles_labels())]
+        if "FluxNET sites" not in existing_labels:
+            axes[0].plot([], [], color="tab:red", alpha=0.6, linewidth=2.0, label="FluxNET sites")
     handles, labels = axes[0].get_legend_handles_labels()
     if handles:
         axes[0].legend(loc="upper right", frameon=False)
@@ -451,22 +1010,52 @@ elif PLOT_MODE == "single":
     # Plot MEAN line (main)
     ax.plot(x_time_plot, mean_series, color="tab:blue", linewidth=1.8, label="MEAN")
 
-    # Optional overlay: CSV time series (auto-select by region unless overridden)
-    auto_csv = REGIONS[region_name].get("csv_file")
-    csv_to_use = args.fluxnet_csv if args.fluxnet_csv else auto_csv
-    if csv_to_use is not None and os.path.exists(csv_to_use):
+    # Optional overlay: CSV time series and/or region FluxNET sites mean
+    # If a single CSV is provided via CLI, plot that too (in orange), but also overlay all region sites and their mean if available
+    if args.fluxnet_csv is not None and os.path.exists(args.fluxnet_csv):
         try:
-            df_csv = pd.read_csv(csv_to_use)
+            df_csv = pd.read_csv(args.fluxnet_csv)
             ts_vals = pd.to_datetime(df_csv[CSV_T_COL].astype(str), format=CSV_T_FMT, errors="coerce")
             y_vals = pd.to_numeric(df_csv[CSV_V_COL], errors="coerce")
             # Ignore missing sentinel values -9999 in the CSV
             mask = ts_vals.notna() & y_vals.notna() & (y_vals != -9999)
-            ts_vals = ts_vals[mask]
-            y_vals = y_vals[mask]
-            ax.plot(ts_vals, y_vals, color="tab:red", linewidth=1.6, label="Reference CSV")
-
+            ax.plot(ts_vals[mask], y_vals[mask], color="tab:orange", linewidth=1.6, label="FluxNET CSV")
         except Exception as e:
-            print(f"Warning: failed to overlay CSV '{csv_to_use}': {e}")
+            print(f"Warning: failed to overlay CSV '{args.fluxnet_csv}': {e}")
+
+    # Overlay all region sites (including Global = all known sites) and plot their mean
+    try:
+        site_info = REGION_SITES.get("regions", {}).get(region_name, {})
+        if region_name == "Global":
+            site_ids = list(REGION_SITES.get("site_id_to_file", {}).keys())
+        else:
+            site_ids = site_info.get("SITE_IDS", [])
+
+        plot_individual = (region_name != "Global")
+        series_list = []
+        for sid in site_ids:
+            fpath = REGION_SITES.get("site_id_to_file", {}).get(sid)
+            if fpath is None or not os.path.exists(fpath):
+                continue
+            df_csv = pd.read_csv(fpath)
+            ts_vals = pd.to_datetime(df_csv[CSV_T_COL].astype(str), format=CSV_T_FMT, errors="coerce")
+            y_vals = pd.to_numeric(df_csv[CSV_V_COL], errors="coerce")
+            mask = ts_vals.notna() & y_vals.notna() & (y_vals != -9999)
+            if not mask.any():
+                continue
+            # Plot faint individual site lines (skip for Global)
+            if plot_individual:
+                ax.plot(ts_vals[mask], y_vals[mask], color="tab:red", alpha=0.1, linewidth=0.8, label=None)
+            # Collect for mean
+            s = pd.Series(y_vals[mask].values, index=pd.DatetimeIndex(ts_vals[mask].values))
+            series_list.append(s)
+
+        if len(series_list) > 0:
+            df_reg = pd.concat(series_list, axis=1)
+            reg_mean = df_reg.mean(axis=1, skipna=True)
+            ax.plot(reg_mean.index, reg_mean.values, color="tab:red", alpha=0.6, linewidth=2.0, label="FluxNET sites")
+    except Exception as e:
+        print(f"Warning: failed to overlay FluxNET sites for region '{region_name}': {e}")
 
     ax.set_title(f"{region_name}")
     ax.set_xlabel("Year")

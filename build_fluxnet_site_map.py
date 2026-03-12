@@ -132,19 +132,24 @@ def main():
         description=(
             "Build a dictionary mapping FluxNET SITE_ID to an existing FLUX-MET filename "
             "from FluxNET_sites_info.csv (filtered by subset level), selecting the best site "
-            "for a region or for all regions."
+            "for a region, for all regions, or returning every matching FluxNET site."
         )
     )
     parser.add_argument("--sites-csv", default=DEFAULT_SITES_CSV, help="Path to FluxNET_sites.csv (with locations)")
     parser.add_argument("--sites-info", default=DEFAULT_SITES_INFO, help="Path to FluxNET_sites_info.csv (with filenames).")
     parser.add_argument("--subset", default="MM", choices=["YY", "MM", "WW", "DD", "HH", "HR"], help="Desired temporal subset to use (default MM)")
-    parser.add_argument("--region", default="South American Tropical", help="Region name to select (ignored if --all-regions)")
+    parser.add_argument("--region", default="South American Tropical", help="Region name to select (ignored if --all-regions or --all-sites)")
     parser.add_argument("--all-regions", action="store_true", help="If set, compute best site for each predefined region")
+    parser.add_argument("--all-sites", action="store_true", help="If set, include every FluxNET site that matches the filters")
     parser.add_argument("--out-json", default=None, help="Optional path to write JSON mapping. If omitted, prints to stdout.")
     args = parser.parse_args()
 
+
    
     sites_info_path = args.sites_info
+
+    if args.all_sites and args.all_regions:
+        raise SystemExit("--all-sites cannot be used with --all-regions")
 
     if not os.path.exists(args.sites_csv):
         raise SystemExit(f"Sites CSV not found: {args.sites_csv}")
@@ -184,7 +189,39 @@ def main():
     if df_sites_allowed.empty:
         raise SystemExit("No SITE_IDs in FluxNET_sites.csv match those in FluxNET_sites_info.csv after filtering.")
 
-    if args.all_regions:
+    if args.all_sites:
+        df_locations = _clean_lat_lon(df_sites_allowed)
+        df_locations["SITE_ID"] = df_locations["SITE_ID"].astype(str).str.strip()
+        df_locations = df_locations.dropna(subset=["SITE_ID"])
+        df_locations = df_locations.drop_duplicates(subset=["SITE_ID"]).sort_values(by="SITE_ID")
+        region_sites = {}
+        for rname, bounds in regions.items():
+            if rname == "Global":
+                continue
+            lat_min, lat_max, lon_min, lon_max = bounds
+            inside = df_locations[
+                (df_locations["LOCATION_LAT"].between(lat_min, lat_max))
+                & (df_locations["LOCATION_LONG"].between(lon_min, lon_max))
+            ]
+            site_ids = sorted(inside["SITE_ID"].tolist())
+            if not site_ids:
+                continue
+            best = select_best_site_for_region(
+                df_locations, rname, allowed_site_ids=set(site_ids)
+            )
+            region_sites[rname] = {
+                "SITE_IDS": site_ids,
+                "LOCATION_LAT": float(best["LOCATION_LAT"]),
+                "LOCATION_LONG": float(best["LOCATION_LONG"]),
+            }
+        df_info_best = choose_best_info_rows(df_info_filt)
+        df_info_best = df_info_best[df_info_best["SITE_ID"].astype(str).isin(df_locations["SITE_ID"])]
+        mapping = build_siteid_to_filename_from_info(df_info_best)
+        payload = {
+            "regions": region_sites,
+            "site_id_to_file": mapping,
+        }
+    elif args.all_regions:
         chosen_site_ids = []
         region_to_site = {}
         for rname in regions.keys():

@@ -18,13 +18,14 @@ START_YEAR = 2002
 END_YEAR = 2022
 PLOT_MODE = "all"
 # PLOT_MODE = "single"
-SELECTED_REGION = "Global"
-# SELECTED_REGION = "South American Tropical"
-
+# SELECTED_REGION = "Global"
+SELECTED_REGION = "South American Tropical"
+SPATIAL_AGG = "nearest_site"  # one of: boxmean, nearest_center, nearest_site
 
 CSV_V_COL = "NEE_VUT_REF"
 
-
+# member_ids = [f"{i:04d}" for i in range(1, 31)]  # 0001..0030
+member_ids = [f"{i:04d}" for i in range(1, 31)]  # 0001..0030
 # ----------------------------
 # Helpers
 # ----------------------------
@@ -100,8 +101,29 @@ def get_fill_value(da):
     return 1e36
 
 
+def get_region_target_latlon(info, mode):
+    """
+    Determine a target lat/lon for a region based on the requested spatial aggregation mode.
+    mode:
+      - 'nearest_center': center of the region bounds
+      - 'nearest_site': representative site coordinates from REGIONS metadata
+    Returns: (lat_t, lon_t) in degrees, with lon normalized to [-180, 180).
+    """
+    lat_min, lat_max, lon_min, lon_max = info["bounds"]
+    if mode == "nearest_center":
+        lat_t = 0.5 * (lat_min + lat_max)
+        lon_t = 0.5 * (lon_min + lon_max)
+    elif mode == "nearest_site":
+        site = info.get("site", {})
+        lat_t = float(site.get("LOCATION_LAT", np.nan))
+        lon_t = float(site.get("LOCATION_LONG", np.nan))
+    else:
+        raise ValueError(f"Unsupported mode for single-point selection: {mode}")
+    lon_t = to_minus180_180(lon_t)
+    return float(lat_t), float(lon_t)
 
-member_ids = [f"{i:04d}" for i in range(1, 31)]  # 0001..0030
+
+
 # Merged region metadata: bounds, representative site, and default FluxNET CSV
 REGIONS = {
     "Global": {
@@ -173,7 +195,8 @@ REGIONS = {
 parser = argparse.ArgumentParser(
     description=(
         "Plot monthly NEE regional time series: either all 12 regions (subplots) "
-        "or a single region occupying the full figure, with optional CSV overlay."
+        "or a single region occupying the full figure, with optional CSV overlay. "
+        "Spatial aggregation can be area-weighted over the region bounds or a single nearest grid cell."
     )
 )
 parser.add_argument("--in-dir", default=IN_DIR, help="Input directory for NEE_monthmean_*.nc files")
@@ -189,6 +212,17 @@ parser.add_argument("--fluxnet-csv", default=None, help="Optional CSV file to ov
 parser.add_argument("--fluxnet-timestamp-col", default="TIMESTAMP", help="CSV column with YYYYMM timestamps")
 parser.add_argument("--fluxnet-value-col", default=CSV_V_COL, help="CSV column with NEE values")
 parser.add_argument("--fluxnet-timestamp-fmt", default="%Y%m", help="Timestamp format for CSV (default %%Y%%m)")
+parser.add_argument(
+    "--spatial-agg",
+    choices=["boxmean", "nearest_center", "nearest_site"],
+    default=SPATIAL_AGG,
+    help=(
+        "Spatial aggregation within each region: "
+        "boxmean = area-weighted mean over bounds (default); "
+        "nearest_center = single grid cell nearest to region box center; "
+        "nearest_site = single grid cell nearest to representative site"
+    ),
+)
 args = parser.parse_args()
 
 IN_DIR = args.in_dir
@@ -197,6 +231,7 @@ START_YEAR = args.start_year
 END_YEAR = args.end_year
 PLOT_MODE = args.mode
 SELECTED_REGION = args.region
+SPATIAL_AGG = args.spatial_agg
 CSV_V_COL = args.fluxnet_value_col
 
 CSV_T_COL = args.fluxnet_timestamp_col
@@ -248,8 +283,8 @@ for year in range(START_YEAR, END_YEAR + 1):
         if not found_any:
             continue  # nothing to process for this month
 
-        # Build area weights once
-        if area is None and ds_ref is not None:
+        # Build area weights once (only if needed)
+        if SPATIAL_AGG == "boxmean" and area is None and ds_ref is not None:
             lat = ds_ref["lat"].values
             lon = ds_ref["lon"].values
             area2d = compute_cell_areas_km2(lat, lon)
@@ -265,13 +300,19 @@ for year in range(START_YEAR, END_YEAR + 1):
             fv_mean = get_fill_value(var_mean)
             for name, info in REGIONS.items():
                 lat_min, lat_max, lon_min, lon_max = info["bounds"]
-                subset = safe_sel_box(var_mean, lat_min, lat_max, lon_min, lon_max)
-                area_subset = safe_sel_box(area, lat_min, lat_max, lon_min, lon_max)
-                subset_masked = subset.where(subset != fv_mean)
-                weights = area_subset.where(subset_masked.notnull())
-                num = (subset_masked * weights).sum(dim=("lat", "lon"))
-                den = weights.sum(dim=("lat", "lon"))
-                region_mean_series[name].append((num / den).item())
+                if SPATIAL_AGG == "boxmean":
+                    subset = safe_sel_box(var_mean, lat_min, lat_max, lon_min, lon_max)
+                    area_subset = safe_sel_box(area, lat_min, lat_max, lon_min, lon_max)
+                    subset_masked = subset.where(subset != fv_mean)
+                    weights = area_subset.where(subset_masked.notnull())
+                    num = (subset_masked * weights).sum(dim=("lat", "lon"))
+                    den = weights.sum(dim=("lat", "lon"))
+                    region_mean_series[name].append((num / den).item())
+                else:
+                    lat_t, lon_t = get_region_target_latlon(info, SPATIAL_AGG)
+                    val = var_mean.sel(lat=lat_t, lon=lon_t, method="nearest")
+                    val_masked = val.where(val != fv_mean)
+                    region_mean_series[name].append(val_masked.values.item() if np.isfinite(val_masked.values) else np.nan)
         else:
             for name in REGIONS:
                 region_mean_series[name].append(np.nan)
@@ -287,13 +328,19 @@ for year in range(START_YEAR, END_YEAR + 1):
                 fv_m = get_fill_value(var_m)
                 for name, info in REGIONS.items():
                     lat_min, lat_max, lon_min, lon_max = info["bounds"]
-                    subset = safe_sel_box(var_m, lat_min, lat_max, lon_min, lon_max)
-                    area_subset = safe_sel_box(area, lat_min, lat_max, lon_min, lon_max)
-                    subset_masked = subset.where(subset != fv_m)
-                    weights = area_subset.where(subset_masked.notnull())
-                    num = (subset_masked * weights).sum(dim=("lat", "lon"))
-                    den = weights.sum(dim=("lat", "lon"))
-                    region_member_series[name][mid].append((num / den).item())
+                    if SPATIAL_AGG == "boxmean":
+                        subset = safe_sel_box(var_m, lat_min, lat_max, lon_min, lon_max)
+                        area_subset = safe_sel_box(area, lat_min, lat_max, lon_min, lon_max)
+                        subset_masked = subset.where(subset != fv_m)
+                        weights = area_subset.where(subset_masked.notnull())
+                        num = (subset_masked * weights).sum(dim=("lat", "lon"))
+                        den = weights.sum(dim=("lat", "lon"))
+                        region_member_series[name][mid].append((num / den).item())
+                    else:
+                        lat_t, lon_t = get_region_target_latlon(info, SPATIAL_AGG)
+                        val = var_m.sel(lat=lat_t, lon=lon_t, method="nearest")
+                        val_masked = val.where(val != fv_m)
+                        region_member_series[name][mid].append(val_masked.values.item() if np.isfinite(val_masked.values) else np.nan)
                 ds_m.close()
             else:
                 for name in REGIONS:
@@ -344,7 +391,8 @@ if PLOT_MODE == "all":
                 df_csv = pd.read_csv(auto_csv)
                 ts_vals = pd.to_datetime(df_csv[CSV_T_COL].astype(str), format=CSV_T_FMT, errors="coerce")
                 y_vals = pd.to_numeric(df_csv[CSV_V_COL], errors="coerce")
-                mask = ts_vals.notna() & y_vals.notna()
+                # Ignore missing sentinel values -9999 in the CSV
+                mask = ts_vals.notna() & y_vals.notna() & (y_vals != -9999)
                 ts_vals = ts_vals[mask]
                 y_vals = y_vals[mask]
                 ax.plot(ts_vals, y_vals, color="tab:red", linewidth=1.6, label="Reference CSV")
@@ -373,7 +421,7 @@ if PLOT_MODE == "all":
     if handles:
         axes[0].legend(loc="upper right", frameon=False)
 
-    fig.suptitle(f"Monthly NEE (MEAN and Ensemble Uncertainty) {START_YEAR}-{END_YEAR}", fontsize=16)
+    fig.suptitle(f"Monthly NEE (MEAN and Ensemble Uncertainty) {START_YEAR}-{END_YEAR} [{SPATIAL_AGG}]", fontsize=16)
     out_png = os.path.join(OUT_DIR, f"NEE_monthly_means_{START_YEAR}_{END_YEAR}.png")
     plt.savefig(out_png, dpi=300)
     plt.close(fig)
@@ -411,10 +459,12 @@ elif PLOT_MODE == "single":
             df_csv = pd.read_csv(csv_to_use)
             ts_vals = pd.to_datetime(df_csv[CSV_T_COL].astype(str), format=CSV_T_FMT, errors="coerce")
             y_vals = pd.to_numeric(df_csv[CSV_V_COL], errors="coerce")
-            mask = ts_vals.notna() & y_vals.notna()
+            # Ignore missing sentinel values -9999 in the CSV
+            mask = ts_vals.notna() & y_vals.notna() & (y_vals != -9999)
             ts_vals = ts_vals[mask]
             y_vals = y_vals[mask]
             ax.plot(ts_vals, y_vals, color="tab:red", linewidth=1.6, label="Reference CSV")
+
         except Exception as e:
             print(f"Warning: failed to overlay CSV '{csv_to_use}': {e}")
 

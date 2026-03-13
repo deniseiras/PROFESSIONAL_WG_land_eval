@@ -7,13 +7,32 @@ shopt -s nullglob
 module load intel-2021.6.0/cdo-threadsafe/2.1.1-lyjsw
 # Mitigate HDF5 attribute access issues and avoid multi-thread races
 # export OMP_NUM_THREADS=${OMP_NUM_THREADS:-1}
-export HDF5_USE_FILE_LOCKING=${HDF5_USE_FILE_LOCKING:-FALSE}
-# export HDF5_DISABLE_ERROR_STACK=${HDF5_DISABLE_ERROR_STACK:-1}
+# export HDF5_USE_FILE_LOCKING=${HDF5_USE_FILE_LOCKING:-FALSE}
+export HDF5_DISABLE_ERROR_STACK=${HDF5_DISABLE_ERROR_STACK:-1}
 
 # Year range (parametrize here)
 OUT_DIR="./data/out"
-YEAR_START=2006
-YEAR_END=2006
+DEFAULT_YEAR_START=2002
+DEFAULT_YEAR_END=2022
+
+YEAR_START="${YEAR_START:-$DEFAULT_YEAR_START}"
+YEAR_END="${YEAR_END:-$DEFAULT_YEAR_END}"
+
+if [[ $# -ge 1 ]]; then
+  YEAR_START="$1"
+  if [[ $# -ge 2 ]]; then
+    YEAR_END="$2"
+  else
+    YEAR_END="$YEAR_START"
+  fi
+fi
+
+echo "Processing years ${YEAR_START}-${YEAR_END}"
+
+if (( YEAR_START > YEAR_END )); then
+  echo "YEAR_START (${YEAR_START}) is greater than YEAR_END (${YEAR_END}); nothing to process." >&2
+  exit 1
+fi
 
 # the files 2006-01-01, 2007-01-01 are bugged files has more variables and also does not have some global atributes, so we exclude them from the mean calculation
 # and log them as missing (since they are not usable for our purpose) 
@@ -23,11 +42,11 @@ START_MONTH=1
 LAST_MONTH=12     # files 2006-01-01, 2007-01-01 bugged
 
 # LAST_MONTH="01". - CDO bug for this month using the for with seq -w, so we use the variable instead !! BIZARR
-MEMBERS=("0001" "0002" "0003" "0004" "0005" "0006" "0007" "0008" "0009" "0010" "0011" "0012" "0013" "0014" "0015" "0016" "0017" "0018" "0019" "0020" "0021" "0022" "0023" "0024" "0025" "0026" "0027" "0028" "0029" "0030")
-# MEMBERS=("????")
-# MEMBERS=("0001" "0002" "0003" "0004" "0005" "0006" "0007" "0008" "0009" )
+# MEMBERS=("0001" "0002" "0003" "0004" "0005" "0006" "0007" "0008" "0009" "0010" "0011" "0012" "0013" "0014" "0015" "0016" "0017" "0018" "0019" "0020" "0021" "0022" "0023" "0024" "0025" "0026" "0027" "0028" "0029" "0030")
+MEMBERS=("????")
+# MEMBERS=("0001" "0002")
 # MEMBERS=("0001")
-MAX_PARALLEL_CDO=30  # adjust to control how many cdo jobs run at once
+MAX_PARALLEL_CDO=36  # adjust to control how many cdo jobs run at once
 
 
 BASE_ROOT="/data/products/CERISE-LND-REANALYSIS/archive/streams/final_archive"
@@ -50,13 +69,13 @@ days_in_month=(31 28 31 30 31 30 31 31 30 31 30 31)
 
 for member in "${MEMBERS[@]}"; do
   echo "Processing member ${member}..."
-  for year in $(seq ${YEAR_START} ${YEAR_END}); do
+  for year in $(seq "$YEAR_START" "$YEAR_END"); do
     for ((month=$START_MONTH; month<=$LAST_MONTH; month++)); do
-      month=$(printf "%02d" "$month")
-      idx=$((10#$month - 1))
+      printf -v month_str "%02d" "$month"
+      idx=$((month - 1))
       days="${days_in_month[$idx]}"
       # Leap year adjustment for February
-      if ((10#$month == 2)); then
+      if (( month == 2 )); then
         if (((10#$year % 400 == 0) || (10#$year % 4 == 0 && 10#$year % 100 != 0))); then
           days=29
         fi
@@ -67,8 +86,8 @@ for member in "${MEMBERS[@]}"; do
       # for day in $(seq -w 1 "$days"); do.  == Causing strage bug for cdo !
       for ((day=START_DAY; day<=days; day++)); do
         printf -v day_str "%02d" "$day"  # zero-pad day without altering arithmetic variable
-        day_dir="${BASE_ROOT}/${year}/output_history_${year}-${month}-${day_str}"
-        pattern="${day_dir}/*.clm2_${member}.h0.${year}-${month}-${day_str}-00000*.nc"
+        day_dir="${BASE_ROOT}/${year}/output_history_${year}-${month_str}-${day_str}"
+        pattern="${day_dir}/*.clm2_${member}.h0.${year}-${month_str}-${day_str}-00000*.nc"
         echo "Looking for files matching: ${pattern}"
         found_any=false
         for src in $pattern; do
@@ -80,12 +99,12 @@ for member in "${MEMBERS[@]}"; do
           fi
         done
         if [[ "$found_any" = false ]]; then
-          echo "MISSING ${year}-${month}-${day_str}: ${pattern}" >> "$NOT_FOUND_LOG"
+          echo "MISSING ${year}-${month_str}-${day_str}: ${pattern}" >> "$NOT_FOUND_LOG"
         fi
       done
 
       if [[ ${#files[@]} -eq 0 ]]; then
-        echo "No files found for ${year}-${month}, skipping." >&2
+        echo "No files found for ${year}-${month_str}, skipping." >&2
         continue
       fi
 
@@ -104,7 +123,7 @@ for member in "${MEMBERS[@]}"; do
       done
 
       if [[ ${#valid_files[@]} -eq 0 ]]; then
-        echo "No files containing NEE for ${year}-${month}, skipping." >&2
+        echo "No files containing NEE for ${year}-${month_str}, skipping." >&2
         continue
       fi
 
@@ -113,15 +132,20 @@ for member in "${MEMBERS[@]}"; do
       else
         member_string="$member"
       fi
-      out="${OUT_DIR}/NEE_monthmean_${year}_${month}_${member_string}.nc"
-      echo "Calculating monthly mean for ${year}-${month}, member ${member_string} from ${#valid_files[@]} daily files..."
+      # out="${OUT_DIR}/NEE_monthmean_${year}_${month_str}_${member_string}.nc"
+      out="${OUT_DIR}/NEE_monthsum_${year}_${month_str}_${member_string}.nc"
+      # echo "Calculating monthly mean for ${year}-${month_str}, member ${member_string} from ${#valid_files[@]} daily files..."
+      echo "Calculating monthly sum for ${year}-${month_str}, member ${member_string} from ${#valid_files[@]} daily files..."
       wait_for_cdo_slots
       cdo_inputs=()
       for src in "${valid_files[@]}"; do
         cdo_inputs+=(-selname,NEE "$src")
       done
-      cdo -P 4 -L -s -O -setattribute,NEE@units="gC m-2 day-1",NEE@long_name="net ecosystem exchange of carbon (monthly mean gC m-2 day-1)" \
-        -mulc,86400 -monmean -mergetime "${cdo_inputs[@]}" "$out" \
+      # cdo -P 4 -L -s -O -setattribute,NEE@units="gC m-2 day-1",NEE@long_name="net ecosystem exchange of carbon (monthly mean gC m-2 day-1)" \
+      #   -mulc,86400 -monmean -mergetime "${cdo_inputs[@]}" "$out" \
+      #   &
+      cdo -P 4 -L -s -O -setattribute,NEE@units="gC m-2 day-1",NEE@long_name="net ecosystem exchange of carbon (monthly sum gC m-2 day-1)" \
+        -mulc,86400 -monsum -mergetime "${cdo_inputs[@]}" "$out" \
         &
 
     done

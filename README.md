@@ -16,6 +16,21 @@ The workflow is:
 - Figures output: ./data/figures_out
 - FluxNET CSVs: ./data/FluxNET
 
+
+## About FluxNET
+
+The FLUXNET2015 Database is the result of years of collaboration among the FLUXNET2015 data team to prepare and process data from regional networks around the world.  This team included The AmeriFlux Project Management, the European Ecosystem Fluxes Database, and the ICOS Ecosystem Tematic Centre (ICOS-ETC).  FLUXNET2015 encompasses 212 flux sites and over 1500 site-years of data from a range of ecosystem types (Pastorello et al, 2019) (Figure below), and has contributed to a large and growing body of ecosystem research.
+
+https://www.nature.com/articles/s41597-020-0534-3
+
+The variable proposed in the SUBSET product is NEE_VUT_REF since it maintains the temporal variability (as opposed to the MEAN NEE), it is representative of the ensemble, and the VUT method is sensitive to possible changes of the canopy (density and height) and site setup, which can have an impact on the turbulence and consequently on the USTAR threshold. 
+
+![Monthly NEE Example](./doc/towermap.png)
+
+The dataset is distributed in files separated by sites, by temporal aggregation resolutions (e.g., hourly, weekly), and by data products (e.g., FULLSET with all the variables and SUBSET designed for less experienced users).
+
+In this work, the monthly dataset were used, in order to compare with the monthy NEE calculated from the Spreads-Land system.
+
 ---
 
 ## 1) create_NEE_month_mean_in_days.bash

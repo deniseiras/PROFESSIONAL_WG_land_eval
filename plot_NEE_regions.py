@@ -729,7 +729,7 @@ parser = argparse.ArgumentParser(
         "Spatial aggregation can be area-weighted over the region bounds or a single nearest grid cell."
     )
 )
-parser.add_argument("--in-dir", default=IN_DIR, help="Input directory for NEE_monthsum_*.nc files")
+parser.add_argument("--in-dir", default=IN_DIR, help="Input directory for NEE_monthmean_*.nc files")
 parser.add_argument("--out-dir", default=OUT_DIR, help="Output directory for figures")
 parser.add_argument("--start-year", type=int, default=START_YEAR, help="Start year (inclusive)")
 parser.add_argument("--end-year", type=int, default=END_YEAR, help="End year (inclusive)")
@@ -782,7 +782,7 @@ area = None  # area weights (km^2)
 
 for year in range(START_YEAR, END_YEAR + 1):
     for month in range(1, 13):
-        mean_path = os.path.join(IN_DIR, f"NEE_monthsum_{year}_{month:02d}_mean.nc")
+        mean_path = os.path.join(IN_DIR, f"NEE_monthmean_{year}_{month:02d}_mean.nc")
 
         found_any = False
         ds_ref = None  # for grid/area detection
@@ -799,7 +799,7 @@ for year in range(START_YEAR, END_YEAR + 1):
         # Ensure we know if at least one member exists and get a ref grid if needed
         has_any_member = False
         for mid in member_ids:
-            member_path = os.path.join(IN_DIR, f"NEE_monthsum_{year}_{month:02d}_{mid}.nc")
+            member_path = os.path.join(IN_DIR, f"NEE_monthmean_{year}_{month:02d}_{mid}.nc")
             if os.path.exists(member_path):
                 has_any_member = True
                 if ds_ref is None:
@@ -849,7 +849,7 @@ for year in range(START_YEAR, END_YEAR + 1):
 
         # Compute region means for each MEMBER (append NaN if missing)
         for mid in member_ids:
-            member_path = os.path.join(IN_DIR, f"NEE_monthsum_{year}_{month:02d}_{mid}.nc")
+            member_path = os.path.join(IN_DIR, f"NEE_monthmean_{year}_{month:02d}_{mid}.nc")
             print(f"Processing MEMBER file: {member_path}")
             if os.path.exists(member_path):
                 ds_m = xr.open_dataset(member_path, decode_times=False)

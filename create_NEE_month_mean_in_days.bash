@@ -6,11 +6,12 @@ shopt -s nullglob
 # switch_user spreads-lnd
 module load intel-2021.6.0/cdo-threadsafe/2.1.1-lyjsw
 # Mitigate HDF5 attribute access issues and avoid multi-thread races
-# export OMP_NUM_THREADS=${OMP_NUM_THREADS:-1}
-# export HDF5_USE_FILE_LOCKING=${HDF5_USE_FILE_LOCKING:-FALSE}
+export OMP_NUM_THREADS=${OMP_NUM_THREADS:-1}
+export HDF5_USE_FILE_LOCKING=${HDF5_USE_FILE_LOCKING:-FALSE}
 export HDF5_DISABLE_ERROR_STACK=${HDF5_DISABLE_ERROR_STACK:-1}
 
-# Year range (parametrize here)
+# PARAMETERS
+MAX_PARALLEL_CDO=4  # adjust to control how many cdo jobs run at once
 OUT_DIR="./data/out"
 DEFAULT_YEAR_START=2002
 DEFAULT_YEAR_END=2022
@@ -64,8 +65,6 @@ case "$MEMBERS_SELECT" in
   *) echo "Invalid MEMBERS_SELECT='$MEMBERS_SELECT'. Use 'all' or '????' (or 'mean')." >&2; exit 2 ;;
 esac
 
-MAX_PARALLEL_CDO=36  # adjust to control how many cdo jobs run at once
-
 
 BASE_ROOT="/data/products/CERISE-LND-REANALYSIS/archive/streams/final_archive"
 now=$(date +%Y%m%d%H%M%S)
@@ -92,13 +91,6 @@ for member in "${MEMBERS[@]}"; do
       printf -v month_str "%02d" "$month"
       idx=$((month - 1))
       days="${days_in_month[$idx]}"
-      # Leap year adjustment for February
-      if (( month == 2 )); then
-        if (((10#$year % 400 == 0) || (10#$year % 4 == 0 && 10#$year % 100 != 0))); then
-          days=29
-        fi
-      fi
-
       files=()
       # days=2
       # for day in $(seq -w 1 "$days"); do.  == Causing strage bug for cdo !
@@ -151,7 +143,12 @@ for member in "${MEMBERS[@]}"; do
         member_string="$member"
       fi
       # out="${OUT_DIR}/NEE_monthmean_${year}_${month_str}_${member_string}.nc"
-      out="${OUT_DIR}/NEE_monthsum_${year}_${month_str}_${member_string}.nc"
+      out="${OUT_DIR}/NEE_monthmean_${year}_${month_str}_${member_string}.nc"
+      # if file $out exists, skip processing (to allow re-running without overwriting existing results)
+      if [[ -f "$out" ]]; then
+        echo "Output file $out already exists, skipping ${year}-${month_str} member ${member_string}."
+        continue
+      fi
       # echo "Calculating monthly mean for ${year}-${month_str}, member ${member_string} from ${#valid_files[@]} daily files..."
       echo "Calculating monthly sum for ${year}-${month_str}, member ${member_string} from ${#valid_files[@]} daily files..."
       wait_for_cdo_slots
@@ -159,11 +156,8 @@ for member in "${MEMBERS[@]}"; do
       for src in "${valid_files[@]}"; do
         cdo_inputs+=(-selname,NEE "$src")
       done
-      # cdo -P 4 -L -s -O -setattribute,NEE@units="gC m-2 day-1",NEE@long_name="net ecosystem exchange of carbon (monthly mean gC m-2 day-1)" \
-      #   -mulc,86400 -monmean -mergetime "${cdo_inputs[@]}" "$out" \
-      #   &
-      cdo -P 4 -L -s -O -setattribute,NEE@units="gC m-2 day-1",NEE@long_name="net ecosystem exchange of carbon (monthly sum gC m-2 day-1)" \
-        -mulc,86400 -monsum -mergetime "${cdo_inputs[@]}" "$out" \
+      cdo -P 1 -L -s -O -setattribute,NEE@units="gC m-2 day-1",NEE@long_name="net ecosystem exchange of carbon (monthly sum gC m-2 day-1)" \
+        -mulc,86400 -monmean -mergetime "${cdo_inputs[@]}" "$out" \
         &
 
     done

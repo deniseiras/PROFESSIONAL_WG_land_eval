@@ -42,10 +42,28 @@ START_MONTH=1
 LAST_MONTH=12     # files 2006-01-01, 2007-01-01 bugged
 
 # LAST_MONTH="01". - CDO bug for this month using the for with seq -w, so we use the variable instead !! BIZARR
-# MEMBERS=("0001" "0002" "0003" "0004" "0005" "0006" "0007" "0008" "0009" "0010" "0011" "0012" "0013" "0014" "0015" "0016" "0017" "0018" "0019" "0020" "0021" "0022" "0023" "0024" "0025" "0026" "0027" "0028" "0029" "0030")
-MEMBERS=("????")
-# MEMBERS=("0001" "0002")
-# MEMBERS=("0001")
+# Members selection (parametrize here). Choose 'all' (30 members) or '????' (ensemble mean placeholder)
+MEMBERS_ALL=("0001" "0002" "0003" "0004" "0005" "0006" "0007" "0008" "0009" "0010" "0011" "0012" "0013" "0014" "0015" "0016" "0017" "0018" "0019" "0020" "0021" "0022" "0023" "0024" "0025" "0026" "0027" "0028" "0029" "0030")
+MEMBERS_MEAN=("????")
+
+# MEMBERS_SELECT can be provided via env var or as 3rd positional arg:
+# - 'all' for all members
+# - '????' or 'mean' for the ensemble mean placeholder
+MEMBERS_SELECT="${MEMBERS_SELECT:-all}"
+if [[ $# -ge 3 ]]; then
+  case "$3" in
+    all|ALL) MEMBERS_SELECT="all" ;;
+    "????"|mean|MEAN) MEMBERS_SELECT="????" ;;
+    *) echo "Invalid third argument for members selection: '$3'. Use 'all' or '????' (or 'mean')." >&2; exit 2 ;;
+  esac
+fi
+
+case "$MEMBERS_SELECT" in
+  all|ALL) MEMBERS=("${MEMBERS_ALL[@]}") ;;
+  "????"|mean|MEAN) MEMBERS=("${MEMBERS_MEAN[@]}") ;;
+  *) echo "Invalid MEMBERS_SELECT='$MEMBERS_SELECT'. Use 'all' or '????' (or 'mean')." >&2; exit 2 ;;
+esac
+
 MAX_PARALLEL_CDO=36  # adjust to control how many cdo jobs run at once
 
 

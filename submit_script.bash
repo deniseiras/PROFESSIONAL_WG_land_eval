@@ -2,15 +2,17 @@
 
 set -euo pipefail
 
+# Parameters
+YEAR_START=${YEAR_START:-2002}
+YEAR_END=${YEAR_END:-2022}
+MEMBERS_SELECT=${MEMBERS_SELECT:-all}
+# MEMBERS_SELECT=${MEMBERS_SELECT:-????}  # default to ensemble mean placeholder
+
 HERE=$PWD
 cd "$HERE"
 
 SCRIPT_NAME="./create_NEE_month_mean_in_days.bash"
 SCRIPT_BASENAME=$(basename "$SCRIPT_NAME")
-# SCRIPT_NAME="plot_NEE_regions.py"
-
-YEAR_START=${YEAR_START:-2002}
-YEAR_END=${YEAR_END:-2022}
 
 TOTALPES=1
 TASKS_PER_NODE=1

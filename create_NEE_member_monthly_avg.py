@@ -6,18 +6,18 @@ Input files (produced by create_NEE_month_mean_in_days.bash):
   ./data/out/NEE_monthsum_YYYY_MM_MEMBER.nc
 
 Output file:
-  ./data/out/NEE_monthsum_YYYY_MM_avg.nc
+  ./data/out/NEE_monthsum_YYYY_MM_mean.nc
 
 Notes:
 - Only files whose MEMBER matches exactly four digits (e.g., 0001) are included in the
-  ensemble average. Any files like ..._mean.nc or ..._avg.nc are ignored.
+  ensemble average. Any files like ..._mean.nc are ignored.
 - The variable "NEE" is averaged across members; spatial/temporal coordinates are
   taken from the first valid file.
 - Missing or invalid files are skipped with a warning. If no valid members are found,
   the script exits with an error.
 
 Example:
-  ./create_NEE_member_monthly_avg.py --year 2003 --month 06
+  ./create_NEE_member_monthly_mean.py --year 2003 --month 06
 """
 from __future__ import annotations
 
@@ -127,8 +127,6 @@ def build_output_dataset(mean_da: xr.DataArray, src_example: xr.DataArray, var: 
 
 def main():
     p = argparse.ArgumentParser(description="Compute ensemble-mean NEE for a given year-month.")
-    p.add_argument("--year", type=int, required=True, help="Year, e.g., 2003")
-    p.add_argument("--month", type=str, required=True, help="Month as 2-digit string, e.g., 06")
     p.add_argument("--in-dir", default="./data/out", help="Input directory containing per-member files")
     p.add_argument("--out-dir", default="./data/out", help="Directory to write the averaged file")
     p.add_argument("--prefix", default="NEE_monthsum", help="Filename prefix before YYYY_MM, default: NEE_monthsum")
@@ -137,87 +135,91 @@ def main():
 
     args = p.parse_args()
 
-    try:
-        month_int = int(args.month)
-    except ValueError:
-        print("ERROR: --month must be an integer-like string such as 06 or 6", file=sys.stderr)
-        sys.exit(2)
+    # try:
+    #     month_int = int(args.month)
+    # except ValueError:
+    #     print("ERROR: --month must be an integer-like string such as 06 or 6", file=sys.stderr)
+    #     sys.exit(2)
 
-    ym = f"{args.year:04d}_{month_int:02d}"
+    # ym = f"{args.year:04d}_{month_int:02d}"
+    
+    for year in range(2002, 2023):
+        for month_int in range(1, 13):
+            ym = f"{year:04d}_{month_int:02d}"
 
-    os.makedirs(args.out_dir, exist_ok=True)
-    out_path = os.path.join(args.out_dir, f"{args.prefix}_{ym}_avg.nc")
+            os.makedirs(args.out_dir, exist_ok=True)
+            out_path = os.path.join(args.out_dir, f"{args.prefix}_{ym}_mean.nc")
 
-    if os.path.exists(out_path) and not args.force:
-        print(f"Output already exists: {out_path} (use --force to overwrite)")
-        return
+            if os.path.exists(out_path) and not args.force:
+                print(f"Output already exists: {out_path} (use --force to overwrite)")
+                continue
 
-    member_files = find_member_files(args.in_dir, args.prefix, args.year, month_int)
-    if not member_files:
-        print(
-            f"ERROR: No member files found matching {args.in_dir}/{args.prefix}_{ym}_####.nc",
-            file=sys.stderr,
-        )
-        sys.exit(1)
+            member_files = find_member_files(args.in_dir, args.prefix, year, month_int)
+            if not member_files:
+                print(
+                    f"ERROR: No member files found matching {args.in_dir}/{args.prefix}_{ym}_####.nc",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
 
-    print(f"Found {len(member_files)} member files for {ym}:")
-    for m, pth in member_files:
-        print(f"  {m}: {pth}")
+            print(f"Found {len(member_files)} member files for {ym}:")
+            for m, pth in member_files:
+                print(f"  {m}: {pth}")
 
-    valid: List[Tuple[str, xr.DataArray]] = []
-    for member, path in member_files:
-        da = open_member_dataarray(path, args.var)
-        if da is None:
-            continue
-        valid.append((member, da))
+            valid: List[Tuple[str, xr.DataArray]] = []
+            for member, path in member_files:
+                da = open_member_dataarray(path, args.var)
+                if da is None:
+                    continue
+                valid.append((member, da))
 
-    if not valid:
-        print(f"ERROR: No valid files contained variable '{args.var}'.", file=sys.stderr)
-        sys.exit(1)
+            if not valid:
+                print(f"ERROR: No valid files contained variable '{args.var}'.", file=sys.stderr)
+                sys.exit(1)
 
-    mean_da = ensemble_mean(valid, args.var)
+            mean_da = ensemble_mean(valid, args.var)
 
-    # Build output dataset and attributes
-    ds_out = build_output_dataset(mean_da, valid[0][1], args.var)
+            # Build output dataset and attributes
+            ds_out = build_output_dataset(mean_da, valid[0][1], args.var)
 
-    # Compose global attributes: start from first file's attrs if available
-    global_attrs = {}
-    try:
-        with xr.open_dataset(member_files[0][1], decode_times=False) as ds0:
-            global_attrs.update({k: str(v) for k, v in ds0.attrs.items()})
-    except Exception:
-        pass
+            # Compose global attributes: start from first file's attrs if available
+            global_attrs = {}
+            try:
+                with xr.open_dataset(member_files[0][1], decode_times=False) as ds0:
+                    global_attrs.update({k: str(v) for k, v in ds0.attrs.items()})
+            except Exception:
+                pass
 
-    history_line = (
-        f"{datetime.utcnow().isoformat(timespec='seconds')}Z: ensemble mean over members "
-        f"[{','.join([m for m, _ in valid])}] -> {os.path.basename(out_path)}"
-    )
-    if "history" in global_attrs and global_attrs["history"]:
-        global_attrs["history"] = f"{global_attrs['history']}\n{history_line}"
-    else:
-        global_attrs["history"] = history_line
+            history_line = (
+                f"{datetime.utcnow().isoformat(timespec='seconds')}Z: ensemble mean over members "
+                f"[{','.join([m for m, _ in valid])}] -> {os.path.basename(out_path)}"
+            )
+            if "history" in global_attrs and global_attrs["history"]:
+                global_attrs["history"] = f"{global_attrs['history']}\n{history_line}"
+            else:
+                global_attrs["history"] = history_line
 
-    ds_out = ds_out.assign_attrs(global_attrs)
+            ds_out = ds_out.assign_attrs(global_attrs)
 
-    # Encoding: compress and use float32 by default
-    enc = {}
-    # Try to preserve _FillValue from source variable if present
-    src_enc_fill = valid[0][1].encoding.get("_FillValue")
-    fill_value = src_enc_fill if src_enc_fill is not None else np.float32(np.nan)
-    enc[args.var] = {
-        "zlib": True,
-        "complevel": 4,
-        "dtype": "float32",
-        "_FillValue": fill_value,
-    }
+            # Encoding: compress and use float32 by default
+            enc = {}
+            # Try to preserve _FillValue from source variable if present
+            src_enc_fill = valid[0][1].encoding.get("_FillValue")
+            fill_value = src_enc_fill if src_enc_fill is not None else np.float32(np.nan)
+            enc[args.var] = {
+                "zlib": True,
+                "complevel": 4,
+                "dtype": "float32",
+                "_FillValue": fill_value,
+            }
 
-    try:
-        ds_out.to_netcdf(out_path, encoding=enc)
-    except Exception as e:
-        print(f"ERROR: Failed to write {out_path}: {e}", file=sys.stderr)
-        sys.exit(1)
+            try:
+                ds_out.to_netcdf(out_path, encoding=enc)
+            except Exception as e:
+                print(f"ERROR: Failed to write {out_path}: {e}", file=sys.stderr)
+                sys.exit(1)
 
-    print(f"Wrote ensemble-mean file: {out_path}")
+            print(f"Wrote ensemble-mean file: {out_path}")
 
 
 if __name__ == "__main__":

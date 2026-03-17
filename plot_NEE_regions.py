@@ -15,7 +15,7 @@ import pandas as pd
 IN_DIR = "./data/out"
 OUT_DIR = "./data/figures_out"
 START_YEAR = 2002
-END_YEAR = 2022
+END_YEAR = 2003
 PLOT_MODE = "all"
 # PLOT_MODE = "single"
 # SELECTED_REGION = "Global"
@@ -24,8 +24,11 @@ SPATIAL_AGG = "boxmean"  # one of: boxmean, nearest_center, nearest_site
 
 CSV_V_COL = "NEE_VUT_REF"
 
+COMPARE_SOURCE = "both"  # one of: none, fluxnet, fluxcom, both
+FLUXCOM_DIR = "./data/FluxComm/CarbonFluxes/RS_METEO/ensemble/ERA5/monthly"
+
 # member_ids = [f"{i:04d}" for i in range(1, 31)]  # 0001..0030
-member_ids = [f"{i:04d}" for i in range(1, 31)]  # 0001..0030
+member_ids = [f"{i:04d}" for i in range(1, 3)]  # 0001..0030
 # ----------------------------
 # Helpers
 # ----------------------------
@@ -742,6 +745,8 @@ parser.add_argument("--fluxnet-csv", default=None, help="Optional CSV file to ov
 parser.add_argument("--fluxnet-timestamp-col", default="TIMESTAMP", help="CSV column with YYYYMM timestamps")
 parser.add_argument("--fluxnet-value-col", default=CSV_V_COL, help="CSV column with NEE values")
 parser.add_argument("--fluxnet-timestamp-fmt", default="%Y%m", help="Timestamp format for CSV (default %%Y%%m)")
+parser.add_argument("--fluxnet-qc-col", default="NEE_VUT_REF_QC", help="CSV column with QC fraction for NEE (0-1)")
+parser.add_argument("--fluxnet-qc-min", type=float, default=0.5, help="Minimum QC fraction to accept (strictly > threshold)")
 parser.add_argument(
     "--spatial-agg",
     choices=["boxmean", "nearest_center", "nearest_site"],
@@ -753,6 +758,8 @@ parser.add_argument(
         "nearest_site = single grid cell nearest to representative site"
     ),
 )
+parser.add_argument("--compare", choices=["none", "fluxnet", "fluxcom", "both"], default=COMPARE_SOURCE, help="Comparison overlay: 'none' (no external), 'fluxnet' (FluxNET sites), 'fluxcom' (FLUXCOM gridded), or 'both'")
+parser.add_argument("--fluxcom-dir", default=FLUXCOM_DIR, help="Directory with FLUXCOM monthly files (one per year)")
 args = parser.parse_args()
 
 IN_DIR = args.in_dir
@@ -763,9 +770,17 @@ PLOT_MODE = args.mode
 SELECTED_REGION = args.region
 SPATIAL_AGG = args.spatial_agg
 CSV_V_COL = args.fluxnet_value_col
+COMPARE_SOURCE = args.compare
+FLUXCOM_DIR = args.fluxcom_dir
 
 CSV_T_COL = args.fluxnet_timestamp_col
 CSV_T_FMT = args.fluxnet_timestamp_fmt
+CSV_QC_COL = args.fluxnet_qc_col
+QC_MIN = args.fluxnet_qc_min
+
+# Time window bounds for plotting/overlays
+START_DT = pd.to_datetime(f"{START_YEAR}-01-01")
+END_DT = pd.to_datetime(f"{END_YEAR}-12-31")
 
 os.makedirs(OUT_DIR, exist_ok=True)
 
@@ -777,8 +792,10 @@ os.makedirs(OUT_DIR, exist_ok=True)
 time_list = []
 region_mean_series = {name: [] for name in REGIONS}
 region_member_series = {name: {mid: [] for mid in member_ids} for name in REGIONS}
+region_fluxcom_series = {name: [] for name in REGIONS}
 
-area = None  # area weights (km^2)
+area = None  # area weights (km^2) for primary dataset
+area_fluxcom = None  # area weights (km^2) for FLUXCOM grid
 
 for year in range(START_YEAR, END_YEAR + 1):
     for month in range(1, 13):
@@ -886,6 +903,49 @@ for year in range(START_YEAR, END_YEAR + 1):
         if ds_mean is not None:
             ds_mean.close()
 
+        # Compute FLUXCOM regional means for this month (optional comparison)
+        if COMPARE_SOURCE in ("fluxcom", "both"):
+            flux_path = os.path.join(FLUXCOM_DIR, f"NEE.RS_METEO.FP-NONE.MLM-ALL.METEO-ERA5.720_360.monthly.{year}.nc")
+            if os.path.exists(flux_path):
+                try:
+                    ds_fc = xr.open_dataset(flux_path, decode_times=False)
+                    ds_fc = normalize_longitudes(ds_fc, lon_name="lon")
+
+                    # Build FLUXCOM area weights once (if needed)
+                    if SPATIAL_AGG == "boxmean" and area_fluxcom is None:
+                        lat_fc = ds_fc["lat"].values
+                        lon_fc = ds_fc["lon"].values
+                        area2d_fc = compute_cell_areas_km2(lat_fc, lon_fc)
+                        area_fluxcom = xr.DataArray(area2d_fc, coords={"lat": ds_fc["lat"], "lon": ds_fc["lon"]}, dims=("lat", "lon"))
+
+                    # Select this calendar month (index 0..11)
+                    var_fc = ds_fc["NEE"].isel(time=month-1)
+                    fv_fc = get_fill_value(var_fc)
+
+                    for name, info in REGIONS.items():
+                        lat_min, lat_max, lon_min, lon_max = info["bounds"]
+                        if SPATIAL_AGG == "boxmean":
+                            subset = safe_sel_box(var_fc, lat_min, lat_max, lon_min, lon_max)
+                            area_subset = safe_sel_box(area_fluxcom, lat_min, lat_max, lon_min, lon_max)
+                            subset_masked = subset.where(subset != fv_fc)
+                            weights = area_subset.where(subset_masked.notnull())
+                            num = (subset_masked * weights).sum(dim=("lat", "lon"))
+                            den = weights.sum(dim=("lat", "lon"))
+                            region_fluxcom_series[name].append((num / den).item())
+                        else:
+                            lat_t, lon_t = get_region_target_latlon(info, SPATIAL_AGG)
+                            val = var_fc.sel(lat=lat_t, lon=lon_t, method="nearest")
+                            val_masked = val.where(val != fv_fc)
+                            region_fluxcom_series[name].append(val_masked.values.item() if np.isfinite(val_masked.values) else np.nan)
+                    ds_fc.close()
+                except Exception as e:
+                    print(f"Warning: failed to process FLUXCOM file '{flux_path}': {e}")
+                    for name in REGIONS:
+                        region_fluxcom_series[name].append(np.nan)
+            else:
+                for name in REGIONS:
+                    region_fluxcom_series[name].append(np.nan)
+
 # ----------------------------
 # Plot
 # ----------------------------
@@ -896,6 +956,7 @@ if PLOT_MODE == "all":
     axes = axes.flatten()
 
     fluxnet_any = False  # track if any FluxNET overlay exists in any panel
+    fluxcom_any = False  # track if any FLUXCOM overlay exists in any panel
 
     for i, name in enumerate(REGIONS.keys()):
         ax = axes[i]
@@ -916,47 +977,73 @@ if PLOT_MODE == "all":
         # Plot MEAN line (main)
         ax.plot(x_time_plot, mean_series, color="tab:blue", linewidth=1.8, label="MEAN")
 
+        # Optional overlay: FLUXCOM regional mean (if computed)
+        if COMPARE_SOURCE in ("fluxcom", "both"):
+            try:
+                fc_series = np.array(region_fluxcom_series[name], dtype=float)
+                ax.plot(x_time_plot, fc_series, color="tab:green", linewidth=1.5, label="FLUXCOM mean")
+                fluxcom_any = True
+            except Exception as e:
+                print(f"Warning: failed to overlay FLUXCOM for region '{name}': {e}")
+
         # Optional overlay: all FluxNET site time series and regional mean (if available)
-        try:
-            site_info = REGION_SITES.get("regions", {}).get(name, {})
-            # Include Global: use all known site ids if region is Global
-            if name == "Global":
-                site_ids = list(REGION_SITES.get("site_id_to_file", {}).keys())
-            else:
-                site_ids = site_info.get("SITE_IDS", [])
+        if COMPARE_SOURCE in ("fluxnet", "both"):
+            try:
+                site_info = REGION_SITES.get("regions", {}).get(name, {})
+                # Include Global: use all known site ids if region is Global
+                if name == "Global":
+                    site_ids = list(REGION_SITES.get("site_id_to_file", {}).keys())
+                else:
+                    site_ids = site_info.get("SITE_IDS", [])
 
-            plot_individual = (name != "Global")
-            series_list = []
-            for sid in site_ids:
-                fpath = REGION_SITES.get("site_id_to_file", {}).get(sid)
-                if fpath is None or not os.path.exists(fpath):
-                    continue
-                df_csv = pd.read_csv(fpath)
-                ts_vals = pd.to_datetime(df_csv[CSV_T_COL].astype(str), format=CSV_T_FMT, errors="coerce")
-                y_vals = pd.to_numeric(df_csv[CSV_V_COL], errors="coerce")
-                # Ignore missing sentinel values -9999 in the CSV
-                mask = ts_vals.notna() & y_vals.notna() & (y_vals != -9999)
-                if not mask.any():
-                    continue
-                # Plot faint individual site lines (skip for Global)
-                if plot_individual:
-                    ax.plot(ts_vals[mask], y_vals[mask], color="tab:red", alpha=0.1, linewidth=0.8, label=None)
-                # Collect for mean
-                s = pd.Series(y_vals[mask].values, index=pd.DatetimeIndex(ts_vals[mask].values))
-                series_list.append(s)
+                plot_individual = (name != "Global")
+                series_list = []
+                for sid in site_ids:
+                    fpath = REGION_SITES.get("site_id_to_file", {}).get(sid)
+                    if fpath is None or not os.path.exists(fpath):
+                        continue
+                    df_csv = pd.read_csv(fpath)
+                    ts_vals = pd.to_datetime(df_csv[CSV_T_COL].astype(str), format=CSV_T_FMT, errors="coerce")
+                    y_vals = pd.to_numeric(df_csv[CSV_V_COL], errors="coerce")
+                    qc_vals = pd.to_numeric(df_csv[CSV_QC_COL], errors="coerce") if CSV_QC_COL in df_csv.columns else None
+                    # Base mask for valid timestamps/values and sentinel filtering, then apply QC if available
+                    base_mask = ts_vals.notna() & y_vals.notna() & (y_vals != -9999)
+                    if qc_vals is not None:
+                        good_mask = base_mask & (qc_vals > QC_MIN)
+                    else:
+                        print(f"Warning: QC column '{CSV_QC_COL}' not found in {fpath}; using only non-missing values")
+                        good_mask = base_mask
+                    if not good_mask.any():
+                        continue
+                    # Replace low-quality or invalid values with NaN so lines break across gaps
+                    y_plot = y_vals.astype(float).copy()
+                    y_plot[~good_mask] = np.nan
+                    # Restrict to requested time window
+                    window_mask = (ts_vals >= START_DT) & (ts_vals <= END_DT)
+                    if not window_mask.any():
+                        continue
+                    ts_vals_w = ts_vals[window_mask]
+                    y_plot_w = y_plot[window_mask]
+                    # Plot faint individual site lines (skip for Global)
+                    if plot_individual:
+                        ax.plot(ts_vals_w, y_plot_w, color="tab:red", alpha=0.15, linewidth=0.8, label=None)
+                    # Collect for mean
+                    s = pd.Series(y_plot_w.values, index=pd.DatetimeIndex(ts_vals_w.values))
+                    series_list.append(s)
 
-            if len(series_list) > 0:
-                df_reg = pd.concat(series_list, axis=1)
-                reg_mean = df_reg.mean(axis=1, skipna=True)
-                ax.plot(reg_mean.index, reg_mean.values, color="tab:red", alpha=0.6, linewidth=2.0, label="FluxNET sites")
-                fluxnet_any = True
-        except Exception as e:
-            print(f"Warning: failed to overlay FluxNET sites for region '{name}': {e}")
+                if len(series_list) > 0:
+                    df_reg = pd.concat(series_list, axis=1)
+                    reg_mean = df_reg.mean(axis=1, skipna=True)
+                    ax.plot(reg_mean.index, reg_mean.values, color="tab:red", alpha=0.6, linewidth=1.5, label="FluxNET sites")
+                    fluxnet_any = True
+            except Exception as e:
+                print(f"Warning: failed to overlay FluxNET sites for region '{name}': {e}")
 
         ax.set_title(name)
         ax.set_xlabel("Year")
         ax.set_ylabel("NEE (gC/m²/day)")
         # ax.set_ylim(-2, 2)
+        ax.set_xlim(START_DT, END_DT)
         ax.xaxis.set_major_locator(YearLocator(base=5))
         ax.xaxis.set_major_formatter(DateFormatter("%Y"))
         # Minor ticks: every year
@@ -975,7 +1062,11 @@ if PLOT_MODE == "all":
     if fluxnet_any:
         existing_labels = [lbl for _, lbl in zip(*axes[0].get_legend_handles_labels())]
         if "FluxNET sites" not in existing_labels:
-            axes[0].plot([], [], color="tab:red", alpha=0.6, linewidth=2.0, label="FluxNET sites")
+            axes[0].plot([], [], color="tab:red", alpha=0.6, linewidth=1.5, label="FluxNET sites")
+    if fluxcom_any:
+        existing_labels = [lbl for _, lbl in zip(*axes[0].get_legend_handles_labels())]
+        if "FLUXCOM mean" not in existing_labels:
+            axes[0].plot([], [], color="tab:green", linewidth=1.5, label="FLUXCOM mean")
     handles, labels = axes[0].get_legend_handles_labels()
     if handles:
         axes[0].legend(loc="upper right", frameon=False)
@@ -1017,50 +1108,88 @@ elif PLOT_MODE == "single":
             df_csv = pd.read_csv(args.fluxnet_csv)
             ts_vals = pd.to_datetime(df_csv[CSV_T_COL].astype(str), format=CSV_T_FMT, errors="coerce")
             y_vals = pd.to_numeric(df_csv[CSV_V_COL], errors="coerce")
-            # Ignore missing sentinel values -9999 in the CSV
-            mask = ts_vals.notna() & y_vals.notna() & (y_vals != -9999)
-            ax.plot(ts_vals[mask], y_vals[mask], color="tab:orange", linewidth=1.6, label="FluxNET CSV")
+            qc_vals = pd.to_numeric(df_csv[CSV_QC_COL], errors="coerce") if CSV_QC_COL in df_csv.columns else None
+            base_mask = ts_vals.notna() & y_vals.notna() & (y_vals != -9999)
+            if qc_vals is not None:
+                good_mask = base_mask & (qc_vals > QC_MIN)
+            else:
+                print(f"Warning: QC column '{CSV_QC_COL}' not found in {args.fluxnet_csv}; using only non-missing values")
+                good_mask = base_mask
+            y_plot = y_vals.astype(float).copy()
+            y_plot[~good_mask] = np.nan
+            # Restrict to requested time window
+            window_mask = (ts_vals >= START_DT) & (ts_vals <= END_DT)
+            if window_mask.any():
+                ts_vals_w = ts_vals[window_mask]
+                y_plot_w = y_plot[window_mask]
+                ax.plot(ts_vals_w, y_plot_w, color="tab:orange", linewidth=1.6, label="FluxNET CSV")
         except Exception as e:
             print(f"Warning: failed to overlay CSV '{args.fluxnet_csv}': {e}")
 
+    # Optional overlay: FLUXCOM regional mean (if computed)
+    if COMPARE_SOURCE in ("fluxcom", "both"):
+        try:
+            fc_series = np.array(region_fluxcom_series[region_name], dtype=float)
+            ax.plot(x_time_plot, fc_series, color="tab:green", linewidth=1.6, label="FLUXCOM mean")
+        except Exception as e:
+            print(f"Warning: failed to overlay FLUXCOM for region '{region_name}': {e}")
+
     # Overlay all region sites (including Global = all known sites) and plot their mean
-    try:
-        site_info = REGION_SITES.get("regions", {}).get(region_name, {})
-        if region_name == "Global":
-            site_ids = list(REGION_SITES.get("site_id_to_file", {}).keys())
-        else:
-            site_ids = site_info.get("SITE_IDS", [])
+    if COMPARE_SOURCE in ("fluxnet", "both"):
+        try:
+            site_info = REGION_SITES.get("regions", {}).get(region_name, {})
+            if region_name == "Global":
+                site_ids = list(REGION_SITES.get("site_id_to_file", {}).keys())
+            else:
+                site_ids = site_info.get("SITE_IDS", [])
 
-        plot_individual = (region_name != "Global")
-        series_list = []
-        for sid in site_ids:
-            fpath = REGION_SITES.get("site_id_to_file", {}).get(sid)
-            if fpath is None or not os.path.exists(fpath):
-                continue
-            df_csv = pd.read_csv(fpath)
-            ts_vals = pd.to_datetime(df_csv[CSV_T_COL].astype(str), format=CSV_T_FMT, errors="coerce")
-            y_vals = pd.to_numeric(df_csv[CSV_V_COL], errors="coerce")
-            mask = ts_vals.notna() & y_vals.notna() & (y_vals != -9999)
-            if not mask.any():
-                continue
-            # Plot faint individual site lines (skip for Global)
-            if plot_individual:
-                ax.plot(ts_vals[mask], y_vals[mask], color="tab:red", alpha=0.1, linewidth=0.8, label=None)
-            # Collect for mean
-            s = pd.Series(y_vals[mask].values, index=pd.DatetimeIndex(ts_vals[mask].values))
-            series_list.append(s)
+            plot_individual = (region_name != "Global")
+            series_list = []
+            for sid in site_ids:
+                fpath = REGION_SITES.get("site_id_to_file", {}).get(sid)
+                if fpath is None or not os.path.exists(fpath):
+                    continue
+                df_csv = pd.read_csv(fpath)
+                ts_vals = pd.to_datetime(df_csv[CSV_T_COL].astype(str), format=CSV_T_FMT, errors="coerce")
+                y_vals = pd.to_numeric(df_csv[CSV_V_COL], errors="coerce")
+                qc_vals = pd.to_numeric(df_csv[CSV_QC_COL], errors="coerce") if CSV_QC_COL in df_csv.columns else None
+                base_mask = ts_vals.notna() & y_vals.notna() & (y_vals != -9999)
+                if qc_vals is not None:
+                    good_mask = base_mask & (qc_vals > QC_MIN)
+                else:
+                    print(f"Warning: QC column '{CSV_QC_COL}' not found in {fpath}; using only non-missing values")
+                    good_mask = base_mask
+                if not good_mask.any():
+                    continue
+                                    # Replace low-quality or invalid values with NaN so lines break across gaps
+                    y_plot = y_vals.astype(float).copy()
+                    y_plot[~good_mask] = np.nan
+                    # Restrict to requested time window
+                    window_mask = (ts_vals >= START_DT) & (ts_vals <= END_DT)
+                    if not window_mask.any():
+                        continue
+                    ts_vals_w = ts_vals[window_mask]
+                    y_plot_w = y_plot[window_mask]
+                    # Plot faint individual site lines (skip for Global)
+                    if plot_individual:
+                        ax.plot(ts_vals_w, y_plot_w, color="tab:red", alpha=0.15, linewidth=0.8, label=None)
+                    # Collect for mean
+                    s = pd.Series(y_plot_w.values, index=pd.DatetimeIndex(ts_vals_w.values))
+                    series_list.append(s)
 
-        if len(series_list) > 0:
-            df_reg = pd.concat(series_list, axis=1)
-            reg_mean = df_reg.mean(axis=1, skipna=True)
-            ax.plot(reg_mean.index, reg_mean.values, color="tab:red", alpha=0.6, linewidth=2.0, label="FluxNET sites")
-    except Exception as e:
-        print(f"Warning: failed to overlay FluxNET sites for region '{region_name}': {e}")
+
+            if len(series_list) > 0:
+                df_reg = pd.concat(series_list, axis=1)
+                reg_mean = df_reg.mean(axis=1, skipna=True)
+                ax.plot(reg_mean.index, reg_mean.values, color="tab:red", alpha=0.6, linewidth=1.5, label="FluxNET sites")
+        except Exception as e:
+            print(f"Warning: failed to overlay FluxNET sites for region '{region_name}': {e}")
 
     ax.set_title(f"{region_name}")
     ax.set_xlabel("Year")
     ax.set_ylabel("NEE (gC/m²/day)")
     # ax.set_ylim(-2, 2)
+    ax.set_xlim(START_DT, END_DT)
     ax.xaxis.set_major_locator(YearLocator(base=5))
     ax.xaxis.set_major_formatter(DateFormatter("%Y"))
     ax.xaxis.set_minor_locator(YearLocator(1))

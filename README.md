@@ -2,11 +2,11 @@
 
 Weather Generator Land evaluation
 
-This repository contains a small toolkit to compute monthly-mean NEE from daily model output, and to visualize regional NEE time series with optional FluxNET overlays.
+This repository contains a small toolkit to compute monthly-mean NEE from daily model output, and to visualize regional NEE time series with optional FluxNET site overlays and optional FLUXCOM gridded comparison.
 
 The workflow is:
 - Create monthly NEE means per ensemble member from daily NetCDF files (create_NEE_month_mean_in_days.bash)
-- Plot regional time series from those monthly means (plot_NEE_regions.py)
+- Plot regional time series from those monthly means with optional FluxNET/FLUXCOM overlays (plot_NEE_regions.py)
 - Optionally pick representative FluxNET sites and file paths per region for CSV overlays (build_fluxnet_site_map.py)
 - Optionally submit jobs on an LSF cluster (submit_script.bash)
 
@@ -15,6 +15,7 @@ The workflow is:
 - Monthly means output: ./data/out/NEE_monthmean_YYYY_MM_####.nc (or ..._mean.nc for ensemble mean, if produced)
 - Figures output: ./data/figures_out
 - FluxNET CSVs: ./data/FluxNET
+- FLUXCOM monthly files: ./data/FluxComm/CarbonFluxes/RS_METEO/ensemble/ERA5/monthly/NEE.RS_METEO.FP-NONE.MLM-ALL.METEO-ERA5.720_360.monthly.YYYY.nc
 
 
 ## About FluxNET
@@ -68,7 +69,7 @@ Notes
 ## 2) plot_NEE_regions.py
 Read monthly-mean NEE files and plot regional time series. Supports two modes:
 - all: 12 predefined regions as subplots with ensemble spread
-- single: one region full-width, with optional FluxNET CSV overlay
+- single: one region full-width, with optional FluxNET CSV overlay and/or FLUXCOM comparison
 
 Predefined regions and their bounds are baked into the script (Global, North American Boreal, North American Temperate, South American Tropical, South American Temperate, Northern Africa, Southern Africa, Eurasian Boreal, Eurasian Temperate, Tropical Asia, Australia, Europe). Each region also has a representative FluxNET site used when selecting a single nearest grid cell (spatial-agg=nearest_site).
 
@@ -88,6 +89,10 @@ Command-line arguments (defaults shown)
 - --fluxnet-timestamp-col TIMESTAMP: name of timestamp column
 - --fluxnet-value-col NEE_VUT_REF: name of the column with NEE
 - --fluxnet-timestamp-fmt %Y%m: timestamp format in the CSV
+- --compare {none,fluxnet,fluxcom,both}: control comparison overlays; none = no external overlay, fluxnet = only FluxNET sites, fluxcom = only FLUXCOM gridded, both = FluxNET + FLUXCOM
+- --fluxcom-dir ./data/FluxComm/CarbonFluxes/RS_METEO/ensemble/ERA5/monthly: folder with FLUXCOM monthly files (one per year)
+
+All overlays and the x-axis are restricted to the requested time window [START_YEAR-01-01, END_YEAR-12-31].
 
 FluxNET overlays
 - By default (when site mappings are available), all region sites are overlaid:
@@ -98,9 +103,24 @@ FluxNET overlays
 - CSV parsing uses the --fluxnet-* options; rows with -9999 are ignored
 - In "all" mode the legend is consolidated in the first subplot; the "FluxNET sites" entry is guaranteed to appear if any region includes site overlays
 
+FLUXCOM comparison
+- Reads yearly FLUXCOM files and extracts each calendar month (variable NEE; units gC m-2 d-1; missing_value -9999)
+- Uses the same --spatial-agg as the model dataset:
+  - boxmean: area-weighted mean over the region on the FLUXCOM grid
+  - nearest_center / nearest_site: nearest FLUXCOM grid cell to the target point
+- Plotted as a green line labeled "FLUXCOM mean"
+- File pattern expected per year: NEE.RS_METEO.FP-NONE.MLM-ALL.METEO-ERA5.720_360.monthly.YYYY.nc (configurable via --fluxcom-dir)
+
 Examples
 - Plot all regions with defaults
   python plot_NEE_regions.py --mode all --in-dir ./data/out --out-dir ./data/figures_out
+
+- Plot all regions comparing to FLUXCOM only (box-area mean)
+  python plot_NEE_regions.py --mode all --compare fluxcom --spatial-agg boxmean \
+                             --in-dir ./data/out --out-dir ./data/figures_out
+
+- Plot all regions comparing to both FluxNET and FLUXCOM
+  python plot_NEE_regions.py --mode all --compare both --in-dir ./data/out --out-dir ./data/figures_out
 
 - Plot a single region using nearest site grid cell and overlay a specific CSV
   python plot_NEE_regions.py --mode single --region "South American Tropical" \
@@ -187,6 +207,14 @@ Usage
 2) Plot all regions for a given period
    python plot_NEE_regions.py --mode all --start-year 2002 --end-year 2022 \
                               --in-dir ./data/out --out-dir ./data/figures_out
+
+   Compare against FLUXCOM only
+   python plot_NEE_regions.py --mode all --start-year 2002 --end-year 2022 \
+                              --compare fluxcom --in-dir ./data/out --out-dir ./data/figures_out
+
+   Compare against both FluxNET and FLUXCOM
+   python plot_NEE_regions.py --mode all --start-year 2002 --end-year 2022 \
+                              --compare both --in-dir ./data/out --out-dir ./data/figures_out
 
 3) (Optional) Build FluxNET site map JSONs for overlays
    python build_fluxnet_site_map.py --all-regions --subset MM --out-json ./data/FluxNET/site_map_all_MM.json

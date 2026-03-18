@@ -14,9 +14,9 @@ cd "$HERE"
 SCRIPT_NAME="./create_NEE_month_mean_in_days.bash"
 SCRIPT_BASENAME=$(basename "$SCRIPT_NAME")
 
-TOTALPES=1
-TASKS_PER_NODE=1
-export OMP_NUM_THREADS=4
+TOTALPES=4
+# TASKS_PER_NODE=1
+export OMP_NUM_THREADS=1
 PROJECT=0710
 
 if (( YEAR_START > YEAR_END )); then

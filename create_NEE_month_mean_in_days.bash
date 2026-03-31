@@ -45,12 +45,13 @@ LAST_MONTH=12     # files 2006-01-01, 2007-01-01 bugged
 # LAST_MONTH="01". - CDO bug for this month using the for with seq -w, so we use the variable instead !! BIZARR
 # Members selection (parametrize here). Choose 'all' (30 members) or '????' (ensemble mean placeholder)
 MEMBERS_ALL=("0001" "0002" "0003" "0004" "0005" "0006" "0007" "0008" "0009" "0010" "0011" "0012" "0013" "0014" "0015" "0016" "0017" "0018" "0019" "0020" "0021" "0022" "0023" "0024" "0025" "0026" "0027" "0028" "0029" "0030")
+# MEMBERS_ALL=("0001" "0002" "0003")
 MEMBERS_MEAN=("????")
 
 # MEMBERS_SELECT can be provided via env var or as 3rd positional arg:
 # - 'all' for all members
 # - '????' or 'mean' for the ensemble mean placeholder
-MEMBERS_SELECT="${MEMBERS_SELECT:-all}"
+MEMBERS_SELECT="${MEMBERS_SELECT:-????}"
 if [[ $# -ge 3 ]]; then
   case "$3" in
     all|ALL) MEMBERS_SELECT="all" ;;
@@ -65,6 +66,13 @@ case "$MEMBERS_SELECT" in
   *) echo "Invalid MEMBERS_SELECT='$MEMBERS_SELECT'. Use 'all' or '????' (or 'mean')." >&2; exit 2 ;;
 esac
 
+# Variables to process. Override via environment variable VARS (space- or comma-separated list), e.g.:
+#   VARS="NEE GPP NPP" ./create_NEE_month_mean_in_days.bash
+#   VARS="NEE,GPP,NPP" ./create_NEE_month_mean_in_days.bash
+VARIABLES=("NEE")
+if [[ -n "${VARS:-}" ]]; then
+  IFS=', ' read -r -a VARIABLES <<< "${VARS}"
+fi
 
 BASE_ROOT="/data/products/CERISE-LND-REANALYSIS/archive/streams/final_archive"
 now=$(date +%Y%m%d%H%M%S)
@@ -75,7 +83,15 @@ mkdir -p "$OUT_DIR"
 
 wait_for_cdo_slots() {
   # Wait until the number of running background jobs is below MAX_PARALLEL_CDO
-  while (( $(jobs -pr | wc -l) >= MAX_PARALLEL_CDO )); do
+  # Be robust to 'jobs' behavior in non-interactive shells and pipefail
+  local njobs
+  while :; do
+    njobs=$(jobs -pr 2>/dev/null | wc -l || true)
+    # strip whitespace
+    njobs=${njobs//[[:space:]]/}
+    if (( njobs < MAX_PARALLEL_CDO )); then
+      break
+    fi
     sleep 0.2
   done
 }
@@ -97,18 +113,58 @@ for member in "${MEMBERS[@]}"; do
       for ((day=START_DAY; day<=days; day++)); do
         printf -v day_str "%02d" "$day"  # zero-pad day without altering arithmetic variable
         day_dir="${BASE_ROOT}/${year}/output_history_${year}-${month_str}-${day_str}"
-        pattern="${day_dir}/*.clm2_${member}.h0.${year}-${month_str}-${day_str}-00000*.nc"
-        echo "Looking for files matching: ${pattern}"
+        # First, determine the stream prefix by probing member 0001 only
+        echo "Looking for files in: ${day_dir}"
+        # If the day directory is missing, log and continue quickly
+        if [[ ! -d "$day_dir" ]]; then
+          echo "MISSING ${year}-${month_str}-${day_str}: ${day_dir} (directory missing)" >> "$NOT_FOUND_LOG"
+          continue
+        fi
+
+        probe_pattern="${day_dir}/*.clm2_0001.h0.${year}-${month_str}-${day_str}-00000*.nc"
+        echo "Probing prefix with: ${probe_pattern}"
+        probe_found=false
+        probe_newest=""
+        probe_count=0
+        for src in $probe_pattern; do
+          if [[ -f "$src" ]]; then
+            probe_found=true
+            ((++probe_count))
+            if [[ -z "$probe_newest" || "$src" -nt "$probe_newest" ]]; then
+              probe_newest="$src"
+            fi
+          fi
+        done
+        if [[ "$probe_found" = false ]]; then
+          echo "MISSING ${year}-${month_str}-${day_str}: ${probe_pattern} (no member 0001 to determine prefix)" >> "$NOT_FOUND_LOG"
+          continue
+        fi
+        if (( probe_count > 1 )); then
+          echo "Found ${probe_count} candidate prefixes; selecting newest: ${probe_newest}"
+        fi
+        # Extract prefix path up to 'clm2_0001.h0'
+        prefix_path="${probe_newest%clm2_0001.h0.*}"
+
+        pattern="${prefix_path}clm2_${member}.h0.${year}-${month_str}-${day_str}-00000*.nc"
+        echo "Using prefix $prefix_path"
+        echo "Looking for: ${pattern}"
+
         found_any=false
+        newest=""
+        count=0
         for src in $pattern; do
           if [[ -f "$src" ]]; then
             found_any=true
+            ((++count))
             files+=("$src")
             # ncdump -h "$src" | grep "time ="
             # ncdump -h "$src" | grep "NEE"
           fi
         done
-        if [[ "$found_any" = false ]]; then
+
+        if [[ "$found_any" = true ]]; then
+          echo "Found ${count} files with prefix $prefix_path "
+        else
           echo "MISSING ${year}-${month_str}-${day_str}: ${pattern}" >> "$NOT_FOUND_LOG"
         fi
       done
@@ -118,48 +174,69 @@ for member in "${MEMBERS[@]}"; do
         continue
       fi
 
-      # Keep only files that contain NEE and have a time axis
-      valid_files=()
-      for src in "${files[@]}"; do
-        if cdo -s showname "$src" 2>/dev/null | grep -qw "NEE"; then
-          if [[ -n "$(cdo -s showtimestamp "$src" 2>/dev/null)" ]]; then
-            valid_files+=("$src")
-          else
-            echo "SKIPPING (no time axis) ${src}" >> "$NOT_FOUND_LOG"
-          fi
-        else
-          echo "SKIPPING (missing NEE) ${src}" >> "$NOT_FOUND_LOG"
-        fi
-      done
-
-      if [[ ${#valid_files[@]} -eq 0 ]]; then
-        echo "No files containing NEE for ${year}-${month_str}, skipping." >&2
-        continue
-      fi
-
       if [[ "$member" == "????" ]]; then
         member_string="mean"
       else
         member_string="$member"
       fi
-      # out="${OUT_DIR}/NEE_monthmean_${year}_${month_str}_${member_string}.nc"
-      out="${OUT_DIR}/NEE_monthmean_${year}_${month_str}_${member_string}.nc"
-      # if file $out exists, skip processing (to allow re-running without overwriting existing results)
-      if [[ -f "$out" ]]; then
-        echo "Output file $out already exists, skipping ${year}-${month_str} member ${member_string}."
+
+      # Process all requested variables together
+      # Build CSV and underscore-joined variable lists
+      var_csv=$(IFS=,; echo "${VARIABLES[*]}")
+      var_us=$(IFS=_; echo "${VARIABLES[*]}")
+
+      # Keep only files that contain all variables and have a time axis
+      valid_files=()
+      for src in "${files[@]}"; do
+        # Check time axis
+        if [[ -z "$(cdo -s showtimestamp "$src" 2>/dev/null)" ]]; then
+          echo "SKIPPING (no time axis) ${src}" >> "$NOT_FOUND_LOG"
+          continue
+        fi
+        # Check that file contains all requested variables
+        names="$(cdo -s showname "$src" 2>/dev/null || true)"
+        missing_vars=()
+        for v in "${VARIABLES[@]}"; do
+          if ! grep -qw "$v" <<< "$names"; then
+            missing_vars+=("$v")
+          fi
+        done
+        if [[ ${#missing_vars[@]} -eq 0 ]]; then
+          valid_files+=("$src")
+        else
+          echo "SKIPPING (missing vars: ${missing_vars[*]}) ${src}" >> "$NOT_FOUND_LOG"
+        fi
+      done
+
+      if [[ ${#valid_files[@]} -eq 0 ]]; then
+        echo "No files containing all requested variables (${var_csv}) for ${year}-${month_str}, skipping." >&2
         continue
       fi
-      # echo "Calculating monthly mean for ${year}-${month_str}, member ${member_string} from ${#valid_files[@]} daily files..."
-      echo "Calculating monthly sum for ${year}-${month_str}, member ${member_string} from ${#valid_files[@]} daily files..."
+
+      out="${OUT_DIR}/${var_us}_monthmean_${year}_${month_str}_${member_string}.nc"
+      # if file $out exists, skip processing (to allow re-running without overwriting existing results)
+      if [[ -f "$out" ]]; then
+        echo "Output file $out already exists, skipping ${year}-${month_str} member ${member_string} vars ${var_csv}."
+        continue
+      fi
+
+      echo "Calculating monthly sum for ${year}-${month_str}, member ${member_string}, vars ${var_csv} from ${#valid_files[@]} daily files..."
       wait_for_cdo_slots
+      # Build setattribute string for each variable
+      attr_parts=()
+      for v in "${VARIABLES[@]}"; do
+        attr_parts+=("${v}@units=\"gC m-2 day-1\"")
+        attr_parts+=("${v}@long_name=\"${v} (monthly sum gC m-2 day-1)\"")
+      done
+      attr_arg=$(IFS=,; echo "${attr_parts[*]}")
+
       cdo_inputs=()
       for src in "${valid_files[@]}"; do
-        cdo_inputs+=(-selname,NEE "$src")
+        cdo_inputs+=(-selname,"$var_csv" "$src")
       done
-      cdo -P 1 -L -s -O -setattribute,NEE@units="gC m-2 day-1",NEE@long_name="net ecosystem exchange of carbon (monthly sum gC m-2 day-1)" \
+      cdo -P 1 -L -s -O -setattribute,"$attr_arg" \
         -mulc,86400 -monmean -mergetime "${cdo_inputs[@]}" "$out" \
         &
-
     done
   done
 done

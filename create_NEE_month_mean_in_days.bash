@@ -220,23 +220,41 @@ for member in "${MEMBERS[@]}"; do
         continue
       fi
 
-      echo "Calculating monthly sum for ${year}-${month_str}, member ${member_string}, vars ${var_csv} from ${#valid_files[@]} daily files..."
+      echo "Calculating monthly mean for ${year}-${month_str}, member ${member_string}, vars ${var_csv} from ${#valid_files[@]} daily files..."
       wait_for_cdo_slots
-      # Build setattribute string for each variable
+      # Build setattribute string only for NEE (if requested)
       attr_parts=()
+      attr_needed=false
       for v in "${VARIABLES[@]}"; do
-        attr_parts+=("${v}@units=\"gC m-2 day-1\"")
-        attr_parts+=("${v}@long_name=\"${v} (monthly sum gC m-2 day-1)\"")
+        if [[ "$v" == "NEE" ]]; then
+          attr_parts+=("${v}@units=\"gC m-2 day-1\"")
+          attr_parts+=("${v}@long_name=\"${v} (monthly sum gC m-2 day-1)\"")
+          attr_needed=true
+        fi
       done
-      attr_arg=$(IFS=,; echo "${attr_parts[*]}")
+      attr_arg=""
+      if [[ "$attr_needed" == true ]]; then
+        attr_arg=$(IFS=,; echo "${attr_parts[*]}")
+      fi
 
       cdo_inputs=()
       for src in "${valid_files[@]}"; do
         cdo_inputs+=(-selname,"$var_csv" "$src")
       done
-      cdo -P 1 -L -s -O -setattribute,"$attr_arg" \
-        -mulc,86400 -monmean -mergetime "${cdo_inputs[@]}" "$out" \
-        &
+      monthly_mean_target="$out"
+      if [[ "$attr_needed" == true ]]; then
+        monthly_mean_target="${out}.tmp"
+      fi
+      monthly_cmd=(cdo -P 1 -L -s -O -mulc,86400 -monmean -mergetime "${cdo_inputs[@]}" "$monthly_mean_target")
+      if [[ "$attr_needed" == true ]]; then
+        (
+          "${monthly_cmd[@]}"
+          cdo -s -O -setattribute,"$attr_arg" "$monthly_mean_target" "$out"
+          rm -f "$monthly_mean_target"
+        ) &
+      else
+        "${monthly_cmd[@]}" &
+      fi
     done
   done
 done

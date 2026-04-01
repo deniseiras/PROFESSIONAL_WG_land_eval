@@ -15,10 +15,13 @@ import pandas as pd
 IN_DIR = "./data/out"
 OUT_DIR = "./data/figures_out"
 START_YEAR = 2002
-END_YEAR = 2022
+END_YEAR = 2003
 PLOT_MODE = "all"
 # PLOT_MODE = "single"
 # SELECTED_REGION = "Global"
+INPUT_FNAME_VARS_PREFIX="NEE_TSOI_NEP_TLAI_SNOW_DEPTH_H2OSNO"
+# INPUT_FNAME_VARS_PREFIX="NEE"
+VAR_NAME = "TSOI"
 SELECTED_REGION = "South American Tropical"
 SPATIAL_AGG = "boxmean"  # one of: boxmean, nearest_center, nearest_site
 
@@ -102,6 +105,14 @@ def get_fill_value(da):
     if "missing_value" in attrs:
         return attrs["missing_value"]
     return 1e36
+
+
+def get_units(da):
+    attrs = getattr(da, "attrs", {})
+    for k in ("units", "Units", "unit"):
+        if k in attrs and str(attrs[k]).strip():
+            return str(attrs[k]).strip()
+    return None
 
 
 def get_region_target_latlon(info, mode):
@@ -732,10 +743,11 @@ parser = argparse.ArgumentParser(
         "Spatial aggregation can be area-weighted over the region bounds or a single nearest grid cell."
     )
 )
-parser.add_argument("--in-dir", default=IN_DIR, help="Input directory for NEE_monthmean_*.nc files")
+parser.add_argument("--in-dir", default=IN_DIR, help="Input directory for [VARIABLES]_monthmean_*.nc files")
 parser.add_argument("--out-dir", default=OUT_DIR, help="Output directory for figures")
 parser.add_argument("--start-year", type=int, default=START_YEAR, help="Start year (inclusive)")
 parser.add_argument("--end-year", type=int, default=END_YEAR, help="End year (inclusive)")
+parser.add_argument("--var", choices=["NEE","TSOI","NEP","TLAI","SNOW_DEPTH","H2OSNO"], default=VAR_NAME, help="Variable to plot from the NetCDF files")
 parser.add_argument(
     "--mode", choices=["all", "single"], default=PLOT_MODE,
     help="Plot mode: 'all' = 12 subplots, 'single' = one region full-figure"
@@ -772,6 +784,7 @@ SPATIAL_AGG = args.spatial_agg
 CSV_V_COL = args.fluxnet_value_col
 COMPARE_SOURCE = args.compare
 FLUXCOM_DIR = args.fluxcom_dir
+VAR_NAME = args.var
 
 CSV_T_COL = args.fluxnet_timestamp_col
 CSV_T_FMT = args.fluxnet_timestamp_fmt
@@ -796,10 +809,12 @@ region_fluxcom_series = {name: [] for name in REGIONS}
 
 area = None  # area weights (km^2) for primary dataset
 area_fluxcom = None  # area weights (km^2) for FLUXCOM grid
+y_units_str = None  # units string for ylabel
+any_member_found = False  # track if any ensemble member file exists
 
 for year in range(START_YEAR, END_YEAR + 1):
     for month in range(1, 13):
-        mean_path = os.path.join(IN_DIR, f"NEE_monthmean_{year}_{month:02d}_mean.nc")
+        mean_path = os.path.join(IN_DIR, f"{INPUT_FNAME_VARS_PREFIX}_monthmean_{year}_{month:02d}_mean.nc")
 
         found_any = False
         ds_ref = None  # for grid/area detection
@@ -816,7 +831,7 @@ for year in range(START_YEAR, END_YEAR + 1):
         # Ensure we know if at least one member exists and get a ref grid if needed
         has_any_member = False
         for mid in member_ids:
-            member_path = os.path.join(IN_DIR, f"NEE_monthmean_{year}_{month:02d}_{mid}.nc")
+            member_path = os.path.join(IN_DIR, f"{INPUT_FNAME_VARS_PREFIX}_monthmean_{year}_{month:02d}_{mid}.nc")
             if os.path.exists(member_path):
                 has_any_member = True
                 if ds_ref is None:
@@ -843,7 +858,9 @@ for year in range(START_YEAR, END_YEAR + 1):
 
         # Compute region means for MEAN file (if available), else fill with NaN for now
         if ds_mean is not None:
-            var_mean = ds_mean["NEE"]
+            var_mean = ds_mean[VAR_NAME]
+            if y_units_str is None:
+                y_units_str = get_units(var_mean)
             fv_mean = get_fill_value(var_mean)
             for name, info in REGIONS.items():
                 lat_min, lat_max, lon_min, lon_max = info["bounds"]
@@ -866,12 +883,15 @@ for year in range(START_YEAR, END_YEAR + 1):
 
         # Compute region means for each MEMBER (append NaN if missing)
         for mid in member_ids:
-            member_path = os.path.join(IN_DIR, f"NEE_monthmean_{year}_{month:02d}_{mid}.nc")
+            member_path = os.path.join(IN_DIR, f"{INPUT_FNAME_VARS_PREFIX}_monthmean_{year}_{month:02d}_{mid}.nc")
             print(f"Processing MEMBER file: {member_path}")
             if os.path.exists(member_path):
+                any_member_found = True
                 ds_m = xr.open_dataset(member_path, decode_times=False)
                 ds_m = normalize_longitudes(ds_m, lon_name="lon")
-                var_m = ds_m["NEE"]
+                var_m = ds_m[VAR_NAME]
+                if y_units_str is None:
+                    y_units_str = get_units(var_m)
                 fv_m = get_fill_value(var_m)
                 for name, info in REGIONS.items():
                     lat_min, lat_max, lon_min, lon_max = info["bounds"]
@@ -904,7 +924,7 @@ for year in range(START_YEAR, END_YEAR + 1):
             ds_mean.close()
 
         # Compute FLUXCOM regional means for this month (optional comparison)
-        if COMPARE_SOURCE in ("fluxcom", "both"):
+        if COMPARE_SOURCE in ("fluxcom", "both") and VAR_NAME == "NEE":
             flux_path = os.path.join(FLUXCOM_DIR, f"NEE.RS_METEO.FP-NONE.MLM-ALL.METEO-ERA5.720_360.monthly.{year}.nc")
             if os.path.exists(flux_path):
                 try:
@@ -963,22 +983,24 @@ if PLOT_MODE == "all":
 
         # Prepare data arrays
         mean_series = np.array(region_mean_series[name], dtype=float)
-        members_arr = np.stack([region_member_series[name][mid] for mid in member_ids], axis=1)  # [ntime, nmembers]
 
-        # Uncertainty shading: min..max across members
-        low = np.nanmin(members_arr, axis=1)
-        high = np.nanmax(members_arr, axis=1)
-        ax.fill_between(x_time_plot, low, high, color="tab:blue", alpha=0.15, label="Member range")
+        # Uncertainty shading and member lines only if any member file was found
+        if any_member_found:
+            members_arr = np.stack([region_member_series[name][mid] for mid in member_ids], axis=1)  # [ntime, nmembers]
+            if np.isfinite(members_arr).any():
+                low = np.nanmin(members_arr, axis=1)
+                high = np.nanmax(members_arr, axis=1)
+                ax.fill_between(x_time_plot, low, high, color="tab:blue", alpha=0.15, label="Member range")
 
-        # Plot member lines (light, transparent)
-        for j in range(members_arr.shape[1]):
-            ax.plot(x_time_plot, members_arr[:, j], color="gray", alpha=0.15, linewidth=0.7)
+                # Plot member lines (light, transparent)
+                for j in range(members_arr.shape[1]):
+                    ax.plot(x_time_plot, members_arr[:, j], color="gray", alpha=0.15, linewidth=0.7)
 
         # Plot MEAN line (main)
         ax.plot(x_time_plot, mean_series, color="tab:blue", linewidth=1.8, label="MEAN")
 
         # Optional overlay: FLUXCOM regional mean (if computed)
-        if COMPARE_SOURCE in ("fluxcom", "both"):
+        if COMPARE_SOURCE in ("fluxcom", "both") and VAR_NAME == "NEE":
             try:
                 fc_series = np.array(region_fluxcom_series[name], dtype=float)
                 ax.plot(x_time_plot, fc_series, color="tab:green", linewidth=1.5, label="FLUXCOM mean")
@@ -987,7 +1009,7 @@ if PLOT_MODE == "all":
                 print(f"Warning: failed to overlay FLUXCOM for region '{name}': {e}")
 
         # Optional overlay: all FluxNET site time series and regional mean (if available)
-        if COMPARE_SOURCE in ("fluxnet", "both"):
+        if COMPARE_SOURCE in ("fluxnet", "both") and VAR_NAME == "NEE":
             try:
                 site_info = REGION_SITES.get("regions", {}).get(name, {})
                 # Include Global: use all known site ids if region is Global
@@ -1041,7 +1063,7 @@ if PLOT_MODE == "all":
 
         ax.set_title(name)
         ax.set_xlabel("Year")
-        ax.set_ylabel("NEE (gC/m²/day)")
+        ax.set_ylabel(f"{VAR_NAME} ({y_units_str})" if y_units_str else f"{VAR_NAME}")
         # ax.set_ylim(-2, 2)
         ax.set_xlim(START_DT, END_DT)
         ax.xaxis.set_major_locator(YearLocator(base=5))
@@ -1071,8 +1093,8 @@ if PLOT_MODE == "all":
     if handles:
         axes[0].legend(loc="upper right", frameon=False)
 
-    fig.suptitle(f"Monthly NEE (MEAN and Ensemble Uncertainty) {START_YEAR}-{END_YEAR} [{SPATIAL_AGG}]", fontsize=16)
-    out_png = os.path.join(OUT_DIR, f"NEE_monthly_means_{START_YEAR}_{END_YEAR}.png")
+    fig.suptitle(f"Monthly {VAR_NAME} (MEAN and Ensemble Uncertainty) {START_YEAR}-{END_YEAR} [{SPATIAL_AGG}]", fontsize=16)
+    out_png = os.path.join(OUT_DIR, f"{VAR_NAME}_monthly_means_{START_YEAR}_{END_YEAR}.png")
     plt.savefig(out_png, dpi=300)
     plt.close(fig)
     print(f"Saved {out_png}")
@@ -1087,23 +1109,25 @@ elif PLOT_MODE == "single":
 
     # Prepare data arrays for selected region
     mean_series = np.array(region_mean_series[region_name], dtype=float)
-    members_arr = np.stack([region_member_series[region_name][mid] for mid in member_ids], axis=1)  # [ntime, nmembers]
 
-    # Uncertainty shading: min..max across members
-    low = np.nanmin(members_arr, axis=1)
-    high = np.nanmax(members_arr, axis=1)
-    ax.fill_between(x_time_plot, low, high, color="tab:blue", alpha=0.15, label="Member range")
+    # Uncertainty shading and member lines only if any member file was found
+    if any_member_found:
+        members_arr = np.stack([region_member_series[region_name][mid] for mid in member_ids], axis=1)  # [ntime, nmembers]
+        if np.isfinite(members_arr).any():
+            low = np.nanmin(members_arr, axis=1)
+            high = np.nanmax(members_arr, axis=1)
+            ax.fill_between(x_time_plot, low, high, color="tab:blue", alpha=0.15, label="Member range")
 
-    # Plot member lines (light, transparent)
-    for j in range(members_arr.shape[1]):
-        ax.plot(x_time_plot, members_arr[:, j], color="gray", alpha=0.15, linewidth=0.7)
+            # Plot member lines (light, transparent)
+            for j in range(members_arr.shape[1]):
+                ax.plot(x_time_plot, members_arr[:, j], color="gray", alpha=0.15, linewidth=0.7)
 
     # Plot MEAN line (main)
     ax.plot(x_time_plot, mean_series, color="tab:blue", linewidth=1.8, label="MEAN")
 
     # Optional overlay: CSV time series and/or region FluxNET sites mean
     # If a single CSV is provided via CLI, plot that too (in orange), but also overlay all region sites and their mean if available
-    if args.fluxnet_csv is not None and os.path.exists(args.fluxnet_csv):
+    if VAR_NAME == "NEE" and args.fluxnet_csv is not None and os.path.exists(args.fluxnet_csv):
         try:
             df_csv = pd.read_csv(args.fluxnet_csv)
             ts_vals = pd.to_datetime(df_csv[CSV_T_COL].astype(str), format=CSV_T_FMT, errors="coerce")
@@ -1127,7 +1151,7 @@ elif PLOT_MODE == "single":
             print(f"Warning: failed to overlay CSV '{args.fluxnet_csv}': {e}")
 
     # Optional overlay: FLUXCOM regional mean (if computed)
-    if COMPARE_SOURCE in ("fluxcom", "both"):
+    if COMPARE_SOURCE in ("fluxcom", "both") and VAR_NAME == "NEE":
         try:
             fc_series = np.array(region_fluxcom_series[region_name], dtype=float)
             ax.plot(x_time_plot, fc_series, color="tab:green", linewidth=1.6, label="FLUXCOM mean")
@@ -1135,7 +1159,7 @@ elif PLOT_MODE == "single":
             print(f"Warning: failed to overlay FLUXCOM for region '{region_name}': {e}")
 
     # Overlay all region sites (including Global = all known sites) and plot their mean
-    if COMPARE_SOURCE in ("fluxnet", "both"):
+    if COMPARE_SOURCE in ("fluxnet", "both") and VAR_NAME == "NEE":
         try:
             site_info = REGION_SITES.get("regions", {}).get(region_name, {})
             if region_name == "Global":
@@ -1161,21 +1185,21 @@ elif PLOT_MODE == "single":
                     good_mask = base_mask
                 if not good_mask.any():
                     continue
-                                    # Replace low-quality or invalid values with NaN so lines break across gaps
-                    y_plot = y_vals.astype(float).copy()
-                    y_plot[~good_mask] = np.nan
-                    # Restrict to requested time window
-                    window_mask = (ts_vals >= START_DT) & (ts_vals <= END_DT)
-                    if not window_mask.any():
-                        continue
-                    ts_vals_w = ts_vals[window_mask]
-                    y_plot_w = y_plot[window_mask]
-                    # Plot faint individual site lines (skip for Global)
-                    if plot_individual:
-                        ax.plot(ts_vals_w, y_plot_w, color="tab:red", alpha=0.15, linewidth=0.8, label=None)
-                    # Collect for mean
-                    s = pd.Series(y_plot_w.values, index=pd.DatetimeIndex(ts_vals_w.values))
-                    series_list.append(s)
+                # Replace low-quality or invalid values with NaN so lines break across gaps
+                y_plot = y_vals.astype(float).copy()
+                y_plot[~good_mask] = np.nan
+                # Restrict to requested time window
+                window_mask = (ts_vals >= START_DT) & (ts_vals <= END_DT)
+                if not window_mask.any():
+                    continue
+                ts_vals_w = ts_vals[window_mask]
+                y_plot_w = y_plot[window_mask]
+                # Plot faint individual site lines (skip for Global)
+                if plot_individual:
+                    ax.plot(ts_vals_w, y_plot_w, color="tab:red", alpha=0.15, linewidth=0.8, label=None)
+                # Collect for mean
+                s = pd.Series(y_plot_w.values, index=pd.DatetimeIndex(ts_vals_w.values))
+                series_list.append(s)
 
 
             if len(series_list) > 0:
@@ -1187,7 +1211,7 @@ elif PLOT_MODE == "single":
 
     ax.set_title(f"{region_name}")
     ax.set_xlabel("Year")
-    ax.set_ylabel("NEE (gC/m²/day)")
+    ax.set_ylabel(f"{VAR_NAME} ({y_units_str})" if y_units_str else f"{VAR_NAME}")
     # ax.set_ylim(-2, 2)
     ax.set_xlim(START_DT, END_DT)
     ax.xaxis.set_major_locator(YearLocator(base=5))
@@ -1199,7 +1223,7 @@ elif PLOT_MODE == "single":
     ax.legend(loc="upper right", frameon=False)
 
     safe_region = region_name.replace(" ", "_").replace("/", "-")
-    out_png = os.path.join(OUT_DIR, f"NEE_monthly_{CSV_V_COL}_{safe_region}_{START_YEAR}_{END_YEAR}.png")
+    out_png = os.path.join(OUT_DIR, f"{VAR_NAME}_monthly_{safe_region}_{START_YEAR}_{END_YEAR}.png")
     plt.savefig(out_png, dpi=300)
     plt.close(fig)
     print(f"Saved {out_png}")

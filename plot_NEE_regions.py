@@ -15,7 +15,7 @@ import pandas as pd
 IN_DIR = "./data/out"
 OUT_DIR = "./data/figures_out"
 START_YEAR = 2002
-END_YEAR = 2003
+END_YEAR = 2002
 PLOT_MODE = "all"
 # PLOT_MODE = "single"
 # SELECTED_REGION = "Global"
@@ -772,6 +772,9 @@ parser.add_argument(
 )
 parser.add_argument("--compare", choices=["none", "fluxnet", "fluxcom", "both"], default=COMPARE_SOURCE, help="Comparison overlay: 'none' (no external), 'fluxnet' (FluxNET sites), 'fluxcom' (FLUXCOM gridded), or 'both'")
 parser.add_argument("--fluxcom-dir", default=FLUXCOM_DIR, help="Directory with FLUXCOM monthly files (one per year)")
+# TSOI level selection
+parser.add_argument("--levels", default=None, help="Comma-separated levgrnd depth values in meters to plot (TSOI only), e.g., 0.01,0.04,0.09")
+parser.add_argument("--level-tol", type=float, default=0.5, help="Tolerance (meters) for matching requested levels to levgrnd coordinate (TSOI only)")
 args = parser.parse_args()
 
 IN_DIR = args.in_dir
@@ -785,6 +788,8 @@ CSV_V_COL = args.fluxnet_value_col
 COMPARE_SOURCE = args.compare
 FLUXCOM_DIR = args.fluxcom_dir
 VAR_NAME = args.var
+LEVELS_STR = args.levels
+LEVEL_TOL = args.level_tol
 
 CSV_T_COL = args.fluxnet_timestamp_col
 CSV_T_FMT = args.fluxnet_timestamp_fmt
@@ -796,6 +801,77 @@ START_DT = pd.to_datetime(f"{START_YEAR}-01-01")
 END_DT = pd.to_datetime(f"{END_YEAR}-12-31")
 
 os.makedirs(OUT_DIR, exist_ok=True)
+
+# Optional vertical dimension support (e.g., TSOI has 'levgrnd')
+LEV_DIM = "levgrnd"
+HAS_LEV = False
+NLEV = None
+LEV_VALS = None
+SELECT_LEV = False
+LEV_IDXS = None
+LEV_PLOT_VALS = None
+TOT_NLEV = None
+
+# Parse requested levels if provided and TSOI selected
+if VAR_NAME == "TSOI" and LEVELS_STR:
+    try:
+        LEVELS_REQ = [float(x) for x in LEVELS_STR.replace(" ", "").split(",") if x != ""]
+        if len(LEVELS_REQ) > 0:
+            SELECT_LEV = True
+    except Exception as _e:
+        LEVELS_REQ = []
+        SELECT_LEV = False
+else:
+    LEVELS_REQ = []
+
+# Pre-detect levels for TSOI (scan for the first available file)
+if VAR_NAME == "TSOI":
+    try:
+        ds_meta = None
+        for y in range(START_YEAR, END_YEAR + 1):
+            if ds_meta is not None:
+                break
+            for m in range(1, 13):
+                mean_p = os.path.join(IN_DIR, f"{INPUT_FNAME_VARS_PREFIX}_monthmean_{y}_{m:02d}_mean.nc")
+                if os.path.exists(mean_p):
+                    ds_meta = xr.open_dataset(mean_p, decode_times=False)
+                    break
+                else:
+                    # try first member that exists
+                    for mid0 in member_ids:
+                        mem_p = os.path.join(IN_DIR, f"{INPUT_FNAME_VARS_PREFIX}_monthmean_{y}_{m:02d}_{mid0}.nc")
+                        if os.path.exists(mem_p):
+                            ds_meta = xr.open_dataset(mem_p, decode_times=False)
+                            break
+                if ds_meta is not None:
+                    break
+        if ds_meta is not None and (VAR_NAME in ds_meta.variables) and (LEV_DIM in ds_meta[VAR_NAME].dims):
+            HAS_LEV = True
+            NLEV = ds_meta[VAR_NAME].sizes[LEV_DIM]
+            try:
+                LEV_VALS = np.asarray(ds_meta[LEV_DIM].values, dtype=float)
+            except Exception:
+                LEV_VALS = np.arange(NLEV, dtype=float)
+            # Build selection indices if requested
+            if SELECT_LEV and LEV_VALS is not None:
+                idxs = []
+                vals = []
+                for v in LEVELS_REQ:
+                    di = int(np.argmin(np.abs(LEV_VALS - v)))
+                    if np.abs(LEV_VALS[di] - v) <= LEVEL_TOL:
+                        idxs.append(di)
+                        vals.append(float(LEV_VALS[di]))
+                LEV_IDXS = np.array(idxs, dtype=int) if len(idxs) > 0 else None
+                LEV_PLOT_VALS = np.array(vals, dtype=float) if len(vals) > 0 else None
+                TOT_NLEV = len(idxs) if len(idxs) > 0 else 0
+            else:
+                LEV_PLOT_VALS = LEV_VALS
+                TOT_NLEV = NLEV
+            ds_meta.close()
+
+    except Exception as _e:
+        # fall back silently; detection will happen in-loop
+        pass
 
 # ----------------------------
 # Read MEAN and ensemble MEMBER files per month and compute regional means
@@ -845,6 +921,30 @@ for year in range(START_YEAR, END_YEAR + 1):
         if not found_any:
             continue  # nothing to process for this month
 
+        # Detect vertical levels (e.g., TSOI has 'levgrnd') from a reference dataset
+        if (not HAS_LEV) and VAR_NAME == "TSOI" and (ds_ref is not None) and (VAR_NAME in ds_ref.variables):
+            if LEV_DIM in ds_ref[VAR_NAME].dims:
+                HAS_LEV = True
+                NLEV = ds_ref[VAR_NAME].sizes[LEV_DIM]
+                try:
+                    LEV_VALS = np.asarray(ds_ref[LEV_DIM].values, dtype=float)
+                except Exception:
+                    LEV_VALS = np.arange(NLEV, dtype=float)
+                if SELECT_LEV and LEV_IDXS is None and LEV_VALS is not None:
+                    idxs = []
+                    vals = []
+                    for v in LEVELS_REQ:
+                        di = int(np.argmin(np.abs(LEV_VALS - v)))
+                        if np.abs(LEV_VALS[di] - v) <= LEVEL_TOL:
+                            idxs.append(di)
+                            vals.append(float(LEV_VALS[di]))
+                    LEV_IDXS = np.array(idxs, dtype=int) if len(idxs) > 0 else None
+                    LEV_PLOT_VALS = np.array(vals, dtype=float) if len(vals) > 0 else None
+                    TOT_NLEV = len(idxs) if len(idxs) > 0 else 0
+                else:
+                    LEV_PLOT_VALS = LEV_VALS
+                    TOT_NLEV = NLEV
+
         # Build area weights once (only if needed)
         if SPATIAL_AGG == "boxmean" and area is None and ds_ref is not None:
             lat = ds_ref["lat"].values
@@ -871,15 +971,32 @@ for year in range(START_YEAR, END_YEAR + 1):
                     weights = area_subset.where(subset_masked.notnull())
                     num = (subset_masked * weights).sum(dim=("lat", "lon"))
                     den = weights.sum(dim=("lat", "lon"))
-                    region_mean_series[name].append((num / den).item())
+                    val_reg = (num / den)
+                    # drop singleton time dim if present
+                    if "time" in val_reg.dims and val_reg.sizes.get("time", 1) == 1:
+                        val_reg = val_reg.isel(time=0)
+                    if HAS_LEV and (LEV_DIM in val_reg.dims):
+                        if SELECT_LEV and LEV_IDXS is not None and len(LEV_IDXS) > 0:
+                            val_reg = val_reg.isel({LEV_DIM: LEV_IDXS})
+                        region_mean_series[name].append(val_reg.values.astype(float))
+                    else:
+                        region_mean_series[name].append(val_reg.item())
                 else:
                     lat_t, lon_t = get_region_target_latlon(info, SPATIAL_AGG)
                     val = var_mean.sel(lat=lat_t, lon=lon_t, method="nearest")
                     val_masked = val.where(val != fv_mean)
-                    region_mean_series[name].append(val_masked.values.item() if np.isfinite(val_masked.values) else np.nan)
+                    # drop singleton time dim if present
+                    if "time" in val_masked.dims and val_masked.sizes.get("time", 1) == 1:
+                        val_masked = val_masked.isel(time=0)
+                    if HAS_LEV and (LEV_DIM in val_masked.dims):
+                        if SELECT_LEV and LEV_IDXS is not None and len(LEV_IDXS) > 0:
+                            val_masked = val_masked.isel({LEV_DIM: LEV_IDXS})
+                        region_mean_series[name].append(val_masked.values.astype(float))
+                    else:
+                        region_mean_series[name].append(val_masked.values.item() if np.isfinite(val_masked.values) else np.nan)
         else:
             for name in REGIONS:
-                region_mean_series[name].append(np.nan)
+                region_mean_series[name].append(np.full(TOT_NLEV if TOT_NLEV is not None else (NLEV if NLEV is not None else 0), np.nan, dtype=float) if HAS_LEV else np.nan)
 
         # Compute region means for each MEMBER (append NaN if missing)
         for mid in member_ids:
@@ -902,22 +1019,39 @@ for year in range(START_YEAR, END_YEAR + 1):
                         weights = area_subset.where(subset_masked.notnull())
                         num = (subset_masked * weights).sum(dim=("lat", "lon"))
                         den = weights.sum(dim=("lat", "lon"))
-                        region_member_series[name][mid].append((num / den).item())
+                        val_reg = (num / den)
+                        # drop singleton time dim if present
+                        if "time" in val_reg.dims and val_reg.sizes.get("time", 1) == 1:
+                            val_reg = val_reg.isel(time=0)
+                        if HAS_LEV and (LEV_DIM in val_reg.dims):
+                            if SELECT_LEV and LEV_IDXS is not None and len(LEV_IDXS) > 0:
+                                val_reg = val_reg.isel({LEV_DIM: LEV_IDXS})
+                            region_member_series[name][mid].append(val_reg.values.astype(float))
+                        else:
+                            region_member_series[name][mid].append(val_reg.item())
                     else:
                         lat_t, lon_t = get_region_target_latlon(info, SPATIAL_AGG)
                         val = var_m.sel(lat=lat_t, lon=lon_t, method="nearest")
                         val_masked = val.where(val != fv_m)
-                        region_member_series[name][mid].append(val_masked.values.item() if np.isfinite(val_masked.values) else np.nan)
+                        # drop singleton time dim if present
+                        if "time" in val_masked.dims and val_masked.sizes.get("time", 1) == 1:
+                            val_masked = val_masked.isel(time=0)
+                        if HAS_LEV and (LEV_DIM in val_masked.dims):
+                            if SELECT_LEV and LEV_IDXS is not None and len(LEV_IDXS) > 0:
+                                val_masked = val_masked.isel({LEV_DIM: LEV_IDXS})
+                            region_member_series[name][mid].append(val_masked.values.astype(float))
+                        else:
+                            region_member_series[name][mid].append(val_masked.values.item() if np.isfinite(val_masked.values) else np.nan)
                 ds_m.close()
             else:
                 for name in REGIONS:
-                    region_member_series[name][mid].append(np.nan)
+                    region_member_series[name][mid].append(np.full(TOT_NLEV if TOT_NLEV is not None else (NLEV if NLEV is not None else 0), np.nan, dtype=float) if HAS_LEV else np.nan)
 
         # If MEAN missing, backfill with mean across available members for this month
         if ds_mean is None:
             for name in REGIONS:
                 vals = np.array([region_member_series[name][mid][-1] for mid in member_ids], dtype=float)
-                mean_val = np.nanmean(vals) if np.isfinite(vals).any() else np.nan
+                mean_val = np.nanmean(vals, axis=0) if np.isfinite(vals).any() else (np.full(TOT_NLEV if TOT_NLEV is not None else (NLEV if NLEV is not None else 0), np.nan, dtype=float) if HAS_LEV else np.nan)
                 region_mean_series[name][-1] = mean_val
 
         if ds_mean is not None:
@@ -986,18 +1120,43 @@ if PLOT_MODE == "all":
 
         # Uncertainty shading and member lines only if any member file was found
         if any_member_found:
-            members_arr = np.stack([region_member_series[name][mid] for mid in member_ids], axis=1)  # [ntime, nmembers]
+            members_arr = np.stack([region_member_series[name][mid] for mid in member_ids], axis=1)  # [ntime, nmembers] or [ntime, nmembers, nlev]
             if np.isfinite(members_arr).any():
-                low = np.nanmin(members_arr, axis=1)
-                high = np.nanmax(members_arr, axis=1)
-                ax.fill_between(x_time_plot, low, high, color="tab:blue", alpha=0.15, label="Member range")
+                if HAS_LEV and members_arr.ndim == 3:
+                    local_nlev = members_arr.shape[2]
+                    colors = plt.cm.viridis(np.linspace(0, 1, local_nlev))
+                    for li in range(local_nlev):
+                        low = np.nanmin(members_arr[:, :, li], axis=1)
+                        high = np.nanmax(members_arr[:, :, li], axis=1)
+                        ax.fill_between(x_time_plot, low, high, color=colors[li], alpha=0.08, label="Member range" if (i == 0 and li == 0) else None)
+                else:
+                    low = np.nanmin(members_arr, axis=1)
+                    high = np.nanmax(members_arr, axis=1)
+                    ax.fill_between(x_time_plot, low, high, color="tab:blue", alpha=0.15, label="Member range")
 
-                # Plot member lines (light, transparent)
-                for j in range(members_arr.shape[1]):
-                    ax.plot(x_time_plot, members_arr[:, j], color="gray", alpha=0.15, linewidth=0.7)
+                # Plot member lines (light, transparent) only for 1-level variables
+                if not (HAS_LEV and members_arr.ndim == 3):
+                    for j in range(members_arr.shape[1]):
+                        ax.plot(x_time_plot, members_arr[:, j], color="gray", alpha=0.15, linewidth=0.7)
 
-        # Plot MEAN line (main)
-        ax.plot(x_time_plot, mean_series, color="tab:blue", linewidth=1.8, label="MEAN")
+        # Plot MEAN line(s)
+        if HAS_LEV:
+            mean_arr = np.array(mean_series, dtype=float)
+            if mean_arr.ndim == 1:
+                ax.plot(x_time_plot, mean_arr, color="tab:blue", linewidth=1.8, label="MEAN")
+            else:
+                local_nlev = mean_arr.shape[1]
+                colors = plt.cm.viridis(np.linspace(0, 1, local_nlev))
+                for li in range(local_nlev):
+                    if LEV_PLOT_VALS is not None and li < len(LEV_PLOT_VALS):
+                        lbl = f"z={LEV_PLOT_VALS[li]:.3g} m" if i == 0 else None
+                    elif LEV_VALS is not None and li < len(LEV_VALS):
+                        lbl = f"z={LEV_VALS[li]:.3g} m" if i == 0 else None
+                    else:
+                        lbl = f"lev={li}" if i == 0 else None
+                    ax.plot(x_time_plot, mean_arr[:, li], color=colors[li], linewidth=1.6 if local_nlev <= 10 else 1.0, label=lbl)
+        else:
+            ax.plot(x_time_plot, mean_series, color="tab:blue", linewidth=1.8, label="MEAN")
 
         # Optional overlay: FLUXCOM regional mean (if computed)
         if COMPARE_SOURCE in ("fluxcom", "both") and VAR_NAME == "NEE":
@@ -1112,18 +1271,43 @@ elif PLOT_MODE == "single":
 
     # Uncertainty shading and member lines only if any member file was found
     if any_member_found:
-        members_arr = np.stack([region_member_series[region_name][mid] for mid in member_ids], axis=1)  # [ntime, nmembers]
+        members_arr = np.stack([region_member_series[region_name][mid] for mid in member_ids], axis=1)  # [ntime, nmembers] or [ntime, nmembers, nlev]
         if np.isfinite(members_arr).any():
-            low = np.nanmin(members_arr, axis=1)
-            high = np.nanmax(members_arr, axis=1)
-            ax.fill_between(x_time_plot, low, high, color="tab:blue", alpha=0.15, label="Member range")
+            if HAS_LEV and members_arr.ndim == 3:
+                local_nlev = members_arr.shape[2]
+                colors = plt.cm.viridis(np.linspace(0, 1, local_nlev))
+                for li in range(local_nlev):
+                    low = np.nanmin(members_arr[:, :, li], axis=1)
+                    high = np.nanmax(members_arr[:, :, li], axis=1)
+                    ax.fill_between(x_time_plot, low, high, color=colors[li], alpha=0.08, label="Member range" if li == 0 else None)
+            else:
+                low = np.nanmin(members_arr, axis=1)
+                high = np.nanmax(members_arr, axis=1)
+                ax.fill_between(x_time_plot, low, high, color="tab:blue", alpha=0.15, label="Member range")
 
-            # Plot member lines (light, transparent)
-            for j in range(members_arr.shape[1]):
-                ax.plot(x_time_plot, members_arr[:, j], color="gray", alpha=0.15, linewidth=0.7)
+            # Plot member lines (light, transparent) only for 1-level variables
+            if not (HAS_LEV and members_arr.ndim == 3):
+                for j in range(members_arr.shape[1]):
+                    ax.plot(x_time_plot, members_arr[:, j], color="gray", alpha=0.15, linewidth=0.7)
 
-    # Plot MEAN line (main)
-    ax.plot(x_time_plot, mean_series, color="tab:blue", linewidth=1.8, label="MEAN")
+    # Plot MEAN line(s)
+    if HAS_LEV:
+        mean_arr = np.array(mean_series, dtype=float)
+        if mean_arr.ndim == 1:
+            ax.plot(x_time_plot, mean_arr, color="tab:blue", linewidth=1.8, label="MEAN")
+        else:
+            local_nlev = mean_arr.shape[1]
+            colors = plt.cm.viridis(np.linspace(0, 1, local_nlev))
+            for li in range(local_nlev):
+                if LEV_PLOT_VALS is not None and li < len(LEV_PLOT_VALS):
+                    lbl = f"z={LEV_PLOT_VALS[li]:.3g} m"
+                elif LEV_VALS is not None and li < len(LEV_VALS):
+                    lbl = f"z={LEV_VALS[li]:.3g} m"
+                else:
+                    lbl = f"lev={li}"
+                ax.plot(x_time_plot, mean_arr[:, li], color=colors[li], linewidth=1.6 if local_nlev <= 10 else 1.0, label=lbl)
+    else:
+        ax.plot(x_time_plot, mean_series, color="tab:blue", linewidth=1.8, label="MEAN")
 
     # Optional overlay: CSV time series and/or region FluxNET sites mean
     # If a single CSV is provided via CLI, plot that too (in orange), but also overlay all region sites and their mean if available
